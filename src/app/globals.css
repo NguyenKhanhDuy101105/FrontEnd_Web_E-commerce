@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+
+    scrollbar-width: none;
+
+}
+
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+
+.Toastify__toast {
+    border-radius: 16px !important;
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08) !important;
+    padding: 14px 18px !important;
+    color: #1e293b !important;
+}
+
+.Toastify__toast-icon {
+    width: 22px !important;
+    margin-right: 12px !important;
+}
+
+
+.Toastify__toast--success .Toastify__toast-icon svg {
+    fill: #22c55e !important;
+}
+
+
+.Toastify__close-button {
+    color: #0f172a !important;
+    opacity: 0.6 !important;
+}
+
+.Toastify__close-button:hover {
+    opacity: 1 !important;
+}
