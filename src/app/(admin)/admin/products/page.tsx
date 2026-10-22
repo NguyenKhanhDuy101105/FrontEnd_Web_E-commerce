@@ -54,7 +54,7 @@ export default function AdminProductPage() {
     try {
       const prodRes = await adminProductService.getProducts({
         page: 0,
-        size: 20,
+        size: 100,
         search: searchTerm.trim() || undefined,
       });
 

@@ -10,7 +10,7 @@ import {
   AddressItem,
 } from "@/src/services/customer/addressService";
 import { getCoordinatesFromAddress } from "@/src/utils/geocoding";
-import SearchableSelect from "@/src/components/addresses/SearchableSelect";
+import SearchableSelect from "@/src/app/(customer)/account/address/components/SearchableSelect";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { showToast } from "@/src/utils/toast";
 
@@ -218,7 +218,7 @@ export default function AddressFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-120 flex items-center justify-center bg-black/50 p-4 animate-fadeIn">
       <div className="w-full max-w-xl bg-white rounded-lg shadow-2xl overflow-hidden p-6 sm:p-8 relative max-h-[90vh] overflow-y-auto">
         <button
           type="button"

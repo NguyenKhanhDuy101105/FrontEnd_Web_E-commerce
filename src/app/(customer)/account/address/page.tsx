@@ -6,7 +6,8 @@ import {
   addressService,
   AddressItem,
 } from "@/src/services/customer/addressService";
-import AddressFormModal from "@/src/components/addresses/AddAddressModal";
+import AddressFormModal from "@/src/app/(customer)/account/address/components/AddAddressModal";
+import DeleteConfirmModal from "@/src/app/(customer)/account/address/components/DeleteConfirmModal";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { showToast } from "@/src/utils/toast";
 
@@ -21,6 +22,12 @@ export default function AddressBook() {
   );
 
   const [defaultLoadingId, setDefaultLoadingId] = useState<string | null>(null);
+
+  const [deleteModalOpen, setDeleteModalOpen] = useState<boolean>(false);
+  const [deletingAddressId, setDeletingAddressId] = useState<string | null>(
+    null,
+  );
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const fetchAddresses = useCallback(async () => {
     try {
@@ -78,15 +85,20 @@ export default function AddressBook() {
     }
   };
 
-  const handleDeleteAddress = async (addressId: string) => {
-    const isConfirmed = window.confirm(
-      "Bạn có chắc chắn muốn xóa địa chỉ này không?",
-    );
-    if (!isConfirmed) return;
+  const handleOpenDeleteModal = (addressId: string) => {
+    setDeletingAddressId(addressId);
+    setDeleteModalOpen(true);
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!deletingAddressId) return;
+
+    setIsDeleting(true);
     try {
-      await addressService.deleteAddress(addressId);
+      await addressService.deleteAddress(deletingAddressId);
       showToast.success("Đã xóa địa chỉ thành công!");
+      setDeleteModalOpen(false);
+      setDeletingAddressId(null);
       await fetchAddresses();
     } catch (error) {
       console.error("Lỗi khi xóa địa chỉ:", error);
@@ -95,6 +107,8 @@ export default function AddressBook() {
         message = error.response?.data?.message || message;
       }
       showToast.error(message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -126,7 +140,7 @@ export default function AddressBook() {
           Đang tải danh sách địa chỉ...
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="max-h-107.5 overflow-y-auto pr-1.5 space-y-4 scrollbar-thin scrollbar-thumb-slate-200 hover:scrollbar-thumb-slate-300">
           {addresses.length === 0 ? (
             <div className="text-center py-8 text-slate-500 text-xs sm:text-sm bg-slate-50/50 rounded-lg border border-slate-100">
               Bạn chưa có địa chỉ nào trong sổ địa chỉ.
@@ -192,7 +206,7 @@ export default function AddressBook() {
                       {!isDefault && (
                         <button
                           type="button"
-                          onClick={() => handleDeleteAddress(item.id)}
+                          onClick={() => handleOpenDeleteModal(item.id)}
                           className="px-4 py-1.5 border border-red-200 hover:border-red-400 text-red-500 hover:bg-red-50 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
                         >
                           Xóa
@@ -212,6 +226,16 @@ export default function AddressBook() {
         initialData={selectedAddress}
         onClose={() => setIsModalOpen(false)}
         onSuccess={fetchAddresses}
+      />
+
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        isDeleting={isDeleting}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setDeletingAddressId(null);
+        }}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

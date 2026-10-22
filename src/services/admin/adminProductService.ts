@@ -79,7 +79,7 @@ export const adminProductService = {
     >("/api/admin/products", {
       params: {
         page: params?.page ?? 0,
-        size: params?.size ?? 20,
+        size: params?.size ?? 100,
         ...(params?.search && { search: params.search }),
       },
     });

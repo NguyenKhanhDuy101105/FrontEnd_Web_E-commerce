@@ -140,7 +140,7 @@ function ProductsListingContent() {
   };
 
   return (
-    <div className="bg-slate-50 min-h-screen py-4 sm:py-6">
+    <div className="bg-slate-50 min-h-screen py-4 pb-24 sm:py-6 sm:pb-8">
       <div className="max-w-350 mx-auto px-3 sm:px-6">
         <nav className="text-xs text-slate-500 mb-4 flex items-center space-x-1">
           <Link href="/" className="hover:text-blue-700 transition">
@@ -202,7 +202,7 @@ function ProductsListingContent() {
                 Hiện không có sản phẩm nào phù hợp.
               </div>
             ) : (
-              <>
+              <div className="space-y-4">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                   {products.map((product) => (
                     <ProductCardGrid
@@ -213,12 +213,14 @@ function ProductsListingContent() {
                   ))}
                 </div>
 
-                <Pagination
-                  currentPage={page}
-                  totalPages={totalPages}
-                  onPageChange={handlePageChange}
-                />
-              </>
+                <div className="flex justify-center sm:justify-end items-center pt-2">
+                  <Pagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                  />
+                </div>
+              </div>
             )}
           </div>
         </div>

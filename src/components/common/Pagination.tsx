@@ -48,7 +48,7 @@ export default function Pagination({
   };
 
   return (
-    <div className="flex items-center justify-center gap-1.5 mt-8 my-4">
+    <div className="flex items-start justify-end gap-1.5 p-0 m-0">
       <button
         type="button"
         disabled={currentPage === 0}
@@ -80,7 +80,7 @@ export default function Pagination({
             onClick={() => onPageChange(page)}
             className={`w-9 h-9 text-xs font-bold transition-colors cursor-pointer rounded-none border ${
               isActive
-                ? "bg-blue-900 border-blue-900 text-white"
+                ? "bg-green-900 border-green-900 text-white"
                 : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
             }`}
           >

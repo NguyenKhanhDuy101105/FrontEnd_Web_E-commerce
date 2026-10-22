@@ -2,10 +2,12 @@
 
 import Image from "next/image";
 import { TrashIcon } from "@heroicons/react/24/outline";
-import { CartItem } from "@/src/services/customer/cartService";
+import { CartItem } from "@/src/context/CartContext"; // 👈 Sửa dòng import này từ CartContext
 
 interface CartItemRowProps {
   item: CartItem;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
   isUpdating: boolean;
   onUpdateQuantity: (
     itemId: string,
@@ -17,6 +19,8 @@ interface CartItemRowProps {
 
 export default function CartItemRow({
   item,
+  isSelected = true,
+  onToggleSelect,
   isUpdating,
   onUpdateQuantity,
   onRemoveItem,
@@ -24,15 +28,13 @@ export default function CartItemRow({
   return (
     <div className="pt-4 sm:pt-6 first:pt-0 space-y-3">
       <div className="flex flex-wrap sm:flex-nowrap items-start gap-3 sm:gap-4">
-        {/* Checkbox item */}
         <input
           type="checkbox"
-          checked
-          readOnly
+          checked={isSelected}
+          onChange={onToggleSelect}
           className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 mt-2 sm:mt-5 cursor-pointer shrink-0"
         />
 
-        {/* Ảnh sản phẩm - Bo góc rounded-sm */}
         <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-sm border border-slate-100 p-1 shrink-0 overflow-hidden">
           <Image
             src={item.imageUrl || "/images/Banner1.jpeg"}
@@ -42,7 +44,6 @@ export default function CartItemRow({
           />
         </div>
 
-        {/* Thông tin sản phẩm */}
         <div className="flex-1 min-w-35 space-y-1">
           <h4 className="text-xs sm:text-sm font-semibold text-slate-800 leading-snug line-clamp-2">
             {item.productName}
@@ -51,7 +52,6 @@ export default function CartItemRow({
             SKU: {item.productId.slice(0, 8)}
           </p>
 
-          {/* Đơn giá trên Mobile */}
           <div className="sm:hidden flex items-center gap-2 pt-1">
             <span className="text-xs font-bold text-slate-900">
               {item.unitPrice.toLocaleString("vi-VN")}đ
@@ -64,7 +64,6 @@ export default function CartItemRow({
           </div>
         </div>
 
-        {/* Đơn giá trên Desktop / Tablet */}
         <div className="text-right hidden sm:block w-20 md:w-24 shrink-0">
           <span className="text-xs sm:text-sm font-bold text-slate-900">
             {item.unitPrice.toLocaleString("vi-VN")}đ
@@ -76,9 +75,7 @@ export default function CartItemRow({
           )}
         </div>
 
-        {/* Bộ tăng/giảm số lượng & Nút Xóa */}
         <div className="flex sm:flex-col items-center justify-between sm:justify-start gap-2 shrink-0 w-full sm:w-24 md:w-28 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-          {/* Ô tăng giảm số lượng - Bo góc rounded-sm */}
           <div className="flex items-center border border-slate-200 rounded-sm overflow-hidden bg-slate-50">
             <button
               type="button"
@@ -111,7 +108,6 @@ export default function CartItemRow({
             <span>Xóa</span>
           </button>
 
-          {/* Thành tiền trên Mobile */}
           <div className="sm:hidden text-right">
             <span className="text-xs font-black text-slate-900">
               {item.subtotal.toLocaleString("vi-VN")}đ
@@ -119,7 +115,6 @@ export default function CartItemRow({
           </div>
         </div>
 
-        {/* Thành tiền trên Desktop / Tablet */}
         <div className="text-right hidden sm:block shrink-0 w-20 md:w-24">
           <span className="text-xs sm:text-sm font-black text-slate-900">
             {item.subtotal.toLocaleString("vi-VN")}đ
@@ -127,7 +122,6 @@ export default function CartItemRow({
         </div>
       </div>
 
-      {/* Ô Ghi chú sản phẩm - Bo góc rounded-lg */}
       <div className="pl-0 sm:pl-7">
         <textarea
           rows={1}

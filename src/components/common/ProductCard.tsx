@@ -3,11 +3,17 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { HeartIcon as HeartOutline } from "@heroicons/react/24/outline";
+import {
+  HeartIcon as HeartOutline,
+  PlusIcon,
+  MinusIcon,
+  ShoppingCartIcon,
+} from "@heroicons/react/24/outline";
 import { HeartIcon as HeartSolid } from "@heroicons/react/24/solid";
 import { wishlistService } from "@/src/services/customer/wishlistService";
 import { showToast } from "@/src/utils/toast";
 import { useWishlist } from "@/src/context/WishlistContext";
+import { useCart } from "@/src/context/CartContext";
 
 export interface ProductProps {
   id: string;
@@ -41,14 +47,15 @@ export default function ProductCard({
   onAddToCart,
   onToggleWishlist,
 }: ProductProps) {
-  // 💥 Lấy hàm tra cứu và cập nhật ID từ WishlistContext
   const { isWishlisted, addWishlistId, removeWishlistId } = useWishlist();
+  const { getItemQuantity, addToCart, updateQuantity } = useCart();
 
-  // Đọc trạng thái thả tim trực tiếp từ Context (độ phức tạp O(1))
   const wishlist = isWishlisted(id);
-  const [isWishlistLoading, setIsWishlistLoading] = useState<boolean>(false);
+  const cartQuantity = getItemQuantity(id);
 
-  // Kiểm tra trạng thái tồn kho
+  const [isWishlistLoading, setIsWishlistLoading] = useState<boolean>(false);
+  const [isCartLoading, setIsCartLoading] = useState<boolean>(false);
+
   const isOutOfStock =
     inStock !== undefined
       ? !inStock
@@ -65,7 +72,6 @@ export default function ProductCard({
     const nextState = !wishlist;
     setIsWishlistLoading(true);
 
-    // 💥 Cập nhật State toàn cục tức thì (Optimistic UI)
     if (nextState) {
       addWishlistId(id);
     } else {
@@ -78,7 +84,7 @@ export default function ProductCard({
         if (res.status === "success") {
           showToast.success("Đã thêm sản phẩm vào danh sách yêu thích!");
         } else {
-          removeWishlistId(id); // Rollback nếu backend báo lỗi
+          removeWishlistId(id);
           showToast.error(res.message || "Không thể thêm vào yêu thích!");
         }
       } else {
@@ -86,7 +92,7 @@ export default function ProductCard({
         if (res.status === "success") {
           showToast.success("Đã xóa sản phẩm khỏi danh sách yêu thích!");
         } else {
-          addWishlistId(id); // Rollback nếu backend báo lỗi
+          addWishlistId(id);
           showToast.error(res.message || "Không thể xóa khỏi yêu thích!");
         }
       }
@@ -96,7 +102,7 @@ export default function ProductCard({
       }
     } catch (error) {
       console.error("Lỗi khi cập nhật danh sách yêu thích:", error);
-      // Rollback trạng thái khi gặp ngoại lệ (Exception)
+
       if (nextState) {
         removeWishlistId(id);
       } else {
@@ -108,11 +114,48 @@ export default function ProductCard({
     }
   };
 
-  const handleAddToCartClick = (e: React.MouseEvent) => {
+  const handleAddToCartClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (isOutOfStock) return;
-    if (onAddToCart) onAddToCart(id);
+
+    if (isOutOfStock || isCartLoading) return;
+
+    setIsCartLoading(true);
+    try {
+      await addToCart(id, 1);
+    } catch (error) {
+      console.error("Lỗi khi thêm giỏ hàng:", error);
+    } finally {
+      setIsCartLoading(false);
+    }
+  };
+
+  // Logic tăng số lượng
+  const handleIncreaseQuantity = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isCartLoading) return;
+
+    setIsCartLoading(true);
+    try {
+      await updateQuantity(id, cartQuantity + 1);
+    } finally {
+      setIsCartLoading(false);
+    }
+  };
+
+  // Logic giảm số lượng (khi giảm về 0 sẽ tự hiện lại nút Thêm vào giỏ)
+  const handleDecreaseQuantity = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isCartLoading) return;
+
+    setIsCartLoading(true);
+    try {
+      await updateQuantity(id, cartQuantity - 1);
+    } finally {
+      setIsCartLoading(false);
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -140,8 +183,8 @@ export default function ProductCard({
           />
 
           {isOutOfStock && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/10">
-              <span className="bg-black/75 text-white font-bold text-xs sm:text-sm px-3 py-1.5 rounded-xl shadow-md backdrop-blur-[1px]">
+            <div className="absolute top-2 left-2 z-20">
+              <span className="bg-slate-900/80 text-white font-medium text-[10px] sm:text-xs px-2 py-0.5 rounded-md backdrop-blur-xs tracking-wide">
                 Tạm hết hàng
               </span>
             </div>
@@ -195,18 +238,56 @@ export default function ProductCard({
         </div>
       </Link>
 
-      <button
-        type="button"
-        disabled={isOutOfStock}
-        onClick={handleAddToCartClick}
-        className={`w-full py-1.5 sm:py-2 px-2 border font-bold text-xs rounded-lg transition-all duration-200 text-center shrink-0 ${
-          isOutOfStock
-            ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
-            : "border-[#0d5c3a] hover:bg-emerald-50/60 text-[#0d5c3a] cursor-pointer active:scale-98"
-        }`}
-      >
-        {isOutOfStock ? "Tạm hết hàng" : "Thêm vào giỏ"}
-      </button>
+      {/* KHU VỰC NÚT THAO TÁC GIỎ HÀNG (DÙNG MÀU XANH #0d5c3a CHUẨN ĐỒNG BỘ) */}
+      <div className="shrink-0 w-full">
+        {isOutOfStock ? (
+          <button
+            type="button"
+            disabled
+            className="w-full py-1.5 sm:py-2 px-2 border border-slate-200 bg-slate-100 text-slate-400 font-bold text-xs rounded-lg text-center cursor-not-allowed"
+          >
+            Tạm hết hàng
+          </button>
+        ) : cartQuantity > 0 ? (
+          /* GIAO DIỆN TĂNG / GIẢM SỐ LƯỢNG KHI SẢN PHẨM ĐÃ CÓ TRONG GIỎ HÀNG */
+          <div className="flex items-center justify-between w-full p-1 border border-[#0d5c3a] rounded-lg bg-white shadow-xs">
+            <button
+              type="button"
+              disabled={isCartLoading}
+              onClick={handleDecreaseQuantity}
+              className="w-7 h-7 flex items-center justify-center text-[#0d5c3a] hover:bg-emerald-50 rounded-md transition-colors cursor-pointer active:scale-95 disabled:opacity-50"
+              title="Giảm số lượng"
+            >
+              <MinusIcon className="w-4 h-4 stroke-[2.5]" />
+            </button>
+
+            <span className="font-bold text-xs sm:text-sm text-[#0d5c3a] px-2 select-none">
+              {cartQuantity}
+            </span>
+
+            <button
+              type="button"
+              disabled={isCartLoading}
+              onClick={handleIncreaseQuantity}
+              className="w-7 h-7 flex items-center justify-center text-[#0d5c3a] hover:bg-emerald-50 rounded-md transition-colors cursor-pointer active:scale-95 disabled:opacity-50"
+              title="Tăng số lượng"
+            >
+              <PlusIcon className="w-4 h-4 stroke-[2.5]" />
+            </button>
+          </div>
+        ) : (
+          /* GIAO DIỆN CHƯA CÓ TRONG GIỎ HÀNG -> NÚT THÊM VÀO GIỎ MẶC ĐỊNH */
+          <button
+            type="button"
+            disabled={isCartLoading}
+            onClick={handleAddToCartClick}
+            className="w-full py-1.5 sm:py-2 px-2 border border-[#0d5c3a] text-[#0d5c3a] hover:bg-emerald-50/60 font-bold text-xs rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 disabled:opacity-50"
+          >
+            <ShoppingCartIcon className="w-4 h-4 stroke-2" />
+            <span>{isCartLoading ? "Đang xử lý..." : "Thêm vào giỏ"}</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

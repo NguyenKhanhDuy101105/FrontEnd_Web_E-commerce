@@ -9,7 +9,7 @@ import {
   CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 
-interface OrderCounts {
+export interface OrderCounts {
   pending: number;
   packing: number;
   shipping: number;
@@ -18,11 +18,36 @@ interface OrderCounts {
 
 interface OrderTrackingWidgetProps {
   orderCounts?: OrderCounts;
+  loading?: boolean;
 }
 
 export default function OrderTrackingWidget({
-  orderCounts = { pending: 1, packing: 0, shipping: 2, completed: 18 },
+  orderCounts = { pending: 0, packing: 0, shipping: 0, completed: 0 },
+  loading = false,
 }: OrderTrackingWidgetProps) {
+  if (loading) {
+    return (
+      <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-xs space-y-4 animate-pulse">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="h-5 w-36 bg-slate-200 rounded"></div>
+          <div className="h-4 w-20 bg-slate-200 rounded"></div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[...Array(4)].map((_, i) => (
+            <div
+              key={i}
+              className="bg-slate-50 p-3.5 rounded-lg border border-slate-100/80 text-center flex flex-col items-center justify-center min-h-22.5"
+            >
+              <div className="w-8 h-8 rounded-full bg-slate-200 mb-2"></div>
+              <div className="h-3 w-20 bg-slate-200 rounded mb-1"></div>
+              <div className="h-2.5 w-12 bg-slate-200 rounded"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-xs space-y-4">
       <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -39,9 +64,8 @@ export default function OrderTrackingWidget({
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {/* Chờ xác nhận */}
         <Link
-          href="/account/orders?status=pending"
+          href="/account/orders?status=PENDING"
           className="bg-slate-50/70 hover:bg-slate-50 p-3.5 rounded-lg border border-slate-100/80 text-center relative flex flex-col items-center justify-center min-h-22.5 transition-all group"
         >
           {orderCounts.pending > 0 && (
@@ -58,11 +82,15 @@ export default function OrderTrackingWidget({
           </p>
         </Link>
 
-        {/* Đang đóng gói */}
         <Link
-          href="/account/orders?status=packing"
+          href="/account/orders?status=PROCESSING"
           className="bg-slate-50/70 hover:bg-slate-50 p-3.5 rounded-lg border border-slate-100/80 text-center relative flex flex-col items-center justify-center min-h-22.5 transition-all group"
         >
+          {orderCounts.packing > 0 && (
+            <span className="absolute -top-1.5 right-4 sm:right-6 bg-indigo-600 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-2xs">
+              {orderCounts.packing}
+            </span>
+          )}
           <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
             <InboxStackIcon className="w-4 h-4" />
           </div>
@@ -72,9 +100,8 @@ export default function OrderTrackingWidget({
           </p>
         </Link>
 
-        {/* Đang vận chuyển */}
         <Link
-          href="/account/orders?status=shipping"
+          href="/account/orders?status=SHIPPING"
           className="bg-slate-50/70 hover:bg-slate-50 p-3.5 rounded-lg border border-slate-100/80 text-center relative flex flex-col items-center justify-center min-h-22.5 transition-all group"
         >
           {orderCounts.shipping > 0 && (
@@ -93,9 +120,8 @@ export default function OrderTrackingWidget({
           </p>
         </Link>
 
-        {/* Đã giao thành công */}
         <Link
-          href="/account/orders?status=completed"
+          href="/account/orders?status=COMPLETED"
           className="bg-slate-50/70 hover:bg-slate-50 p-3.5 rounded-lg border border-slate-100/80 text-center relative flex flex-col items-center justify-center min-h-22.5 transition-all group"
         >
           <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">

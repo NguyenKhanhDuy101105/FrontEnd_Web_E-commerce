@@ -3,6 +3,7 @@ import Banner from "../../components/ui/Banner";
 import CategoryList from "../../components/common/CategoryList";
 import PromotionalProducts from "../../components/home/PromotionalProducts";
 import DailyFreshProducts from "../../components/home/DailyFreshProducts";
+import CategoryShowcase from "../../components/common/CategoryShowcase";
 export default function Home() {
   return (
     <>
@@ -16,6 +17,8 @@ export default function Home() {
         <PromotionalProducts />
 
         <DailyFreshProducts />
+
+        <CategoryShowcase />
       </div>
     </>
   );

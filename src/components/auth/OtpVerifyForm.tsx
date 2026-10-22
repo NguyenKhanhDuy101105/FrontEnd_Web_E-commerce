@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { authService } from "@/src/services/customer/authService";
 import axios from "axios";
+import { showToast } from "@/src/utils/toast";
 import {
   ArrowLeftIcon,
   CheckCircleIcon,
@@ -86,6 +87,7 @@ export default function OtpVerifyForm({
 
       console.log("Kết quả gửi lại OTP:", response);
 
+      showToast.success("Mã OTP mới đã được gửi lại thành công!");
       setCountdown(60);
       setOtp(Array(6).fill(""));
       inputRefs.current[0]?.focus();
@@ -100,6 +102,7 @@ export default function OtpVerifyForm({
       }
 
       setErrorMsg(message);
+      showToast.error(message);
     }
   };
 
@@ -108,7 +111,9 @@ export default function OtpVerifyForm({
     const fullOtp = otp.join("");
 
     if (fullOtp.length < 6) {
-      setErrorMsg("Vui lòng nhập đủ 6 chữ số mã xác nhận");
+      const msg = "Vui lòng nhập đủ 6 chữ số mã xác nhận";
+      setErrorMsg(msg);
+      showToast.error(msg);
       return;
     }
 
@@ -122,6 +127,8 @@ export default function OtpVerifyForm({
       });
 
       console.log("Xác thực OTP thành công:", res);
+
+      showToast.success("Xác thực OTP thành công!");
 
       if (res?.data) {
         localStorage.setItem("user", JSON.stringify(res.data));
@@ -144,6 +151,7 @@ export default function OtpVerifyForm({
       }
 
       setErrorMsg(message);
+      showToast.error(message);
     } finally {
       setIsSubmitting(false);
     }

@@ -13,8 +13,10 @@ import {
   ChatBubbleLeftRightIcon,
   Bars3Icon,
   CubeIcon,
+  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import { getUserFromStorage, User } from "@/src/utils/getUser";
+import { useAuthGuard } from "@/src/hooks/useAuthGuard";
 import Cookies from "js-cookie";
 
 import AdminSidebarHeader from "./components/AdminSidebarHeader";
@@ -28,6 +30,10 @@ export default function AdminPortalLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+
+  const { isChecking } = useAuthGuard({
+    allowedRoles: ["ADMIN"],
+  });
 
   const [user, setUser] = useState<User | null>(null);
   const [isMounted, setIsMounted] = useState<boolean>(false);
@@ -107,9 +113,19 @@ export default function AdminPortalLayout({
     ? user.fullName.trim().charAt(0).toUpperCase()
     : "A";
 
+  if (isChecking) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#0f172a] text-zinc-300 font-sans space-y-3">
+        <ArrowPathIcon className="w-8 h-8 animate-spin text-indigo-500" />
+        <span className="text-xs font-semibold tracking-wide">
+          Đang xác thực quyền quản trị Admin...
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
-      {/* Mobile Backdrop */}
       {isMobileOpen && (
         <div
           onClick={() => setIsMobileOpen(false)}
@@ -117,7 +133,6 @@ export default function AdminPortalLayout({
         />
       )}
 
-      {/* Sidebar Navigation */}
       <aside
         className={`fixed lg:static inset-y-0 left-0 z-50 bg-[#0f172a] text-zinc-300 flex flex-col justify-between shrink-0 border-r border-slate-800 shadow-2xl transition-all duration-300 ease-in-out overflow-x-hidden ${
           isMobileOpen
@@ -130,14 +145,12 @@ export default function AdminPortalLayout({
             isCollapsed ? "px-2" : "px-3.5"
           }`}
         >
-          {/* Header & Brand */}
           <AdminSidebarHeader
             isCollapsed={isCollapsed}
             setIsCollapsed={setIsCollapsed}
             setIsMobileOpen={setIsMobileOpen}
           />
 
-          {/* Nav Menu */}
           <AdminSidebarNav
             navItems={navItems}
             pathname={pathname}
@@ -145,7 +158,6 @@ export default function AdminPortalLayout({
           />
         </div>
 
-        {/* User Card Bottom */}
         <AdminUserCard
           user={user}
           isCollapsed={isCollapsed}
@@ -155,14 +167,12 @@ export default function AdminPortalLayout({
         />
       </aside>
 
-      {/* Main Content Workspace */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header cho Mobile */}
         <header className="lg:hidden bg-[#0f172a] border-b border-zinc-800 px-4 py-3 flex items-center justify-between shrink-0 text-white">
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setIsMobileOpen(true)}
-              className="p-2 text-zinc-300 hover:text-white bg-zinc-900 rounded-lg"
+              className="p-2 text-zinc-300 hover:text-white bg-zinc-900 rounded-lg cursor-pointer"
             >
               <Bars3Icon className="w-6 h-6" />
             </button>
@@ -176,7 +186,6 @@ export default function AdminPortalLayout({
           </div>
         </header>
 
-        {/* Workspace Body */}
         <main className="flex-1 overflow-y-auto bg-slate-100 p-4 sm:p-6 md:p-8">
           <div className="max-w-7xl mx-auto space-y-6">{children}</div>
         </main>

@@ -13,8 +13,10 @@ import {
   StarIcon,
   Cog6ToothIcon,
   Bars3Icon,
+  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import { getUserFromStorage, User } from "@/src/utils/getUser";
+import { useAuthGuard } from "@/src/hooks/useAuthGuard";
 import Cookies from "js-cookie";
 
 import BranchSidebarHeader from "./components/BranchSidebarHeader";
@@ -35,6 +37,10 @@ export default function BranchPortalLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+
+  const { isChecking } = useAuthGuard({
+    allowedRoles: ["BRANCH"],
+  });
 
   const [user, setUser] = useState<User | null>(null);
   const [currentBranch, setCurrentBranch] = useState<BranchData | null>(null);
@@ -127,6 +133,17 @@ export default function BranchPortalLayout({
     ? currentBranch.name.trim().charAt(0).toUpperCase()
     : "U";
 
+  if (isChecking) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-900 text-slate-300 font-sans space-y-3">
+        <ArrowPathIcon className="w-8 h-8 animate-spin text-[#10b981]" />
+        <span className="text-xs font-semibold tracking-wide">
+          Đang xác thực quyền truy cập Chi nhánh...
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
       {isMobileOpen && (
@@ -177,7 +194,7 @@ export default function BranchPortalLayout({
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setIsMobileOpen(true)}
-              className="p-2 text-slate-300 hover:text-white bg-slate-800 rounded-lg transition-colors"
+              className="p-2 text-slate-300 hover:text-white bg-slate-800 rounded-lg transition-colors cursor-pointer"
             >
               <Bars3Icon className="w-6 h-6" />
             </button>

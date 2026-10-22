@@ -204,7 +204,7 @@ export default function ProductFilterSidebar({
           <button
             type="button"
             onClick={handleResetFilters}
-            className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 transition cursor-pointer"
+            className="text-[11px] font-semibold text-green-700 hover:text-green-800 flex items-center gap-1 transition cursor-pointer"
           >
             <ArrowPathIcon className="w-3 h-3" />
             <span>Thiết lập lại</span>

@@ -55,7 +55,7 @@ export default function CategoryDropdown() {
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative z-100" ref={dropdownRef}>
       <button
         onClick={handleToggle}
         className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-300 hover:border-emerald-500 rounded-full text-slate-700 hover:text-emerald-600 transition-all duration-200 shadow-xs focus:outline-none cursor-pointer"
@@ -68,7 +68,7 @@ export default function CategoryDropdown() {
 
       {isOpen && (
         <div
-          className="absolute -left-2 mt-2 bg-white rounded-lg shadow-2xl border border-slate-100 flex overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+          className="absolute -left-2 mt-2 bg-white rounded-lg shadow-2xl border border-slate-100 flex overflow-hidden z-100 animate-in fade-in slide-in-from-top-2 duration-150"
           onMouseLeave={() => setHoveredCategory(null)}
         >
           <div className="w-56 bg-slate-50 border-r border-slate-100 py-3 shrink-0 max-h-120 overflow-y-auto no-scrollbar">

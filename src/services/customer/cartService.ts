@@ -1,6 +1,5 @@
 import axiosClient from "../../lib/axiosClient";
 
-// 1. Interface đại diện cho từng sản phẩm trong Giỏ hàng
 export interface CartItem {
   itemId: string;
   productId: string;
@@ -15,7 +14,6 @@ export interface CartItem {
   subtotal: number;
 }
 
-// 2. Interface đại diện cho Giỏ hàng đầy đủ
 export interface CartData {
   cartId: string | null;
   branchId: string;
@@ -24,26 +22,22 @@ export interface CartData {
   totalAmount: number;
 }
 
-// 3. Interface Response API chuẩn
 export interface ApiResponse<T> {
   status: string;
   message: string;
   data: T;
 }
 
-// 4. Request Body khi thêm sản phẩm vào giỏ
 export interface AddToCartRequest {
   branchId: string;
   productId: string;
   quantity: number;
 }
 
-// 5. Request Body khi cập nhật số lượng
 export interface UpdateCartItemRequest {
   quantity: number;
 }
 
-// 6. Module Cart Service
 export const cartService = {
   /**
    * GET: /api/cart?branchId={branchId}

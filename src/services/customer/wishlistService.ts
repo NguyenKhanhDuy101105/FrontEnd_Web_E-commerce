@@ -1,6 +1,5 @@
 import axiosClient from "../../lib/axiosClient";
 
-// 1. Interface đại diện cho sản phẩm trong danh sách Yêu thích
 export interface WishlistItem {
   wishlistId: string;
   productId: string;
@@ -15,14 +14,12 @@ export interface WishlistItem {
   addedAt: string;
 }
 
-// 2. Interface Response API chuẩn
 export interface ApiResponse<T> {
   status: string;
   message: string;
   data: T;
 }
 
-// 3. Module Wishlist Service
 export const wishlistService = {
   /**
    * GET: /api/wishlists

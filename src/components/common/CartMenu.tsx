@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -8,70 +8,14 @@ import {
   ArrowRightEndOnRectangleIcon,
 } from "@heroicons/react/24/outline";
 import { useAuthGuard } from "@/src/hooks/useAuthGuard";
-import { useBranch } from "@/src/context/BranchContext";
-import { cartService, CartItem } from "@/src/services/customer/cartService";
-import { CART_UPDATED_EVENT } from "@/src/utils/cartEvent";
+import { useCart } from "@/src/context/CartContext";
 
 export default function CartMenu() {
   const router = useRouter();
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
   const { isAuthenticated } = useAuthGuard();
-  const { branchId } = useBranch();
-
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [totalQuantity, setTotalQuantity] = useState<number>(0);
-  const [totalPrice, setTotalPrice] = useState<number>(0);
-  const [loading, setLoading] = useState<boolean>(false);
-
-  // 1. Định nghĩa hàm fetch giỏ hàng bằng useCallback
-  const fetchCart = useCallback(async () => {
-    if (!isAuthenticated || !branchId) {
-      setCartItems([]);
-      setTotalQuantity(0);
-      setTotalPrice(0);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await cartService.getCart(branchId);
-      if (res.status === "success" && res.data) {
-        setCartItems(res.data.items || []);
-        // Nếu muốn badge trên Header hiển thị số LOẠI sản phẩm thay vì tổng số lượng:
-        // setTotalQuantity(res.data.items?.length || 0);
-        setTotalQuantity(res.data.totalQuantity || 0);
-        setTotalPrice(res.data.totalAmount || 0);
-      } else {
-        setCartItems([]);
-        setTotalQuantity(0);
-        setTotalPrice(0);
-      }
-    } catch (error) {
-      console.error("Lỗi khi tải giỏ hàng:", error);
-      setCartItems([]);
-      setTotalQuantity(0);
-      setTotalPrice(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated, branchId]);
-
-  // 2. Fetch ban đầu & Đăng ký sự kiện lắng nghe cập nhật giỏ hàng
-  useEffect(() => {
-    fetchCart();
-
-    const handleCartUpdate = () => {
-      fetchCart();
-    };
-
-    // Lắng nghe sự kiện "cart_updated" từ bất kỳ đâu trong ứng dụng
-    window.addEventListener(CART_UPDATED_EVENT, handleCartUpdate);
-
-    return () => {
-      window.removeEventListener(CART_UPDATED_EVENT, handleCartUpdate);
-    };
-  }, [fetchCart]);
+  const { cartItems, totalQuantity, totalAmount, isLoading } = useCart();
 
   const handleGoToCart = () => {
     setIsHovered(false);
@@ -107,7 +51,7 @@ export default function CartMenu() {
         <div className="absolute right-0 top-full w-80 pt-0.5 z-50">
           <div className="bg-white rounded-lg shadow-2xl border border-slate-100 p-4 animate-in fade-in slide-in-from-top-1 duration-150">
             {isAuthenticated ? (
-              loading ? (
+              isLoading && cartItems.length === 0 ? (
                 <div className="text-center py-6 space-y-2">
                   <p className="text-xs text-slate-400">Đang tải giỏ hàng...</p>
                 </div>
@@ -116,10 +60,10 @@ export default function CartMenu() {
                   <div className="max-h-64 overflow-y-auto space-y-3 pr-1.5 divide-y divide-slate-100 scrollbar-thin scrollbar-thumb-slate-200 hover:scrollbar-thumb-slate-300">
                     {cartItems.map((item) => (
                       <div
-                        key={item.itemId}
+                        key={item.itemId || item.productId}
                         className="flex items-center space-x-3 pt-3 first:pt-0"
                       >
-                        <div className="relative w-14 h-14 bg-slate-50 border  rounded-sm border-slate-200 shrink-0 p-1">
+                        <div className="relative w-14 h-14 bg-slate-50 border rounded-sm border-slate-200 shrink-0 p-1">
                           <Image
                             src={item.imageUrl || "/images/Banner1.jpeg"}
                             alt={item.productName}
@@ -145,10 +89,10 @@ export default function CartMenu() {
 
                   <div className="flex items-center justify-between border-t border-slate-100 pt-3">
                     <span className="text-xs font-semibold text-slate-700">
-                      Tổng tiền ( {totalQuantity}) sản phẩm
+                      Tổng tiền ({totalQuantity}) sản phẩm
                     </span>
                     <span className="text-sm font-semibold text-slate-900">
-                      {totalPrice.toLocaleString("vi-VN")}đ
+                      {totalAmount.toLocaleString("vi-VN")}đ
                     </span>
                   </div>
 
