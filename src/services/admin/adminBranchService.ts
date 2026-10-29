@@ -23,7 +23,7 @@ export interface SaveAdminBranchRequest {
   deliveryRadiusKm: number;
   isWarehouse: boolean;
   openingHours?: Record<string, string>;
-  status?: string; // Mặc định: "ACTIVE"
+  status?: string;
 }
 
 export interface SpringPageResponse<T> {

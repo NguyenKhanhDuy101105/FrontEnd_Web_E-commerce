@@ -12,17 +12,40 @@ export default function LoadingSpinner({
   message,
 }: LoadingSpinnerProps) {
   const spinnerContent = (
-    <div className="flex flex-col items-center justify-center gap-3">
-      <div className="relative flex items-center justify-center w-14 h-14">
-        <div className="absolute inset-0 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin" />
-
-        <div className="w-8 h-8 bg-blue-700 rounded-md flex items-center justify-center text-white font-black text-sm shadow-xs">
-          Loading
-        </div>
+    <div className="flex flex-col items-center justify-center gap-3.5">
+      <div className="relative flex items-center justify-center w-12 h-12">
+        <svg
+          className="w-full h-full animate-spin"
+          viewBox="0 0 50 50"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient
+              id="spinner-gradient"
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="100%"
+            >
+              <stop offset="0%" stopColor="#0d5c3a" stopOpacity="1" />
+              <stop offset="50%" stopColor="#10b981" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#a7f3d0" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <circle
+            cx="25"
+            cy="25"
+            r="20"
+            stroke="url(#spinner-gradient)"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+        </svg>
       </div>
 
       {message && (
-        <p className="text-xs font-bold text-slate-700 animate-pulse">
+        <p className="text-xs font-semibold text-slate-600 tracking-wide animate-pulse">
           {message}
         </p>
       )}
@@ -31,7 +54,7 @@ export default function LoadingSpinner({
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-xs">
+      <div className="fixed inset-0 z-999 flex items-center justify-center bg-white/80 backdrop-blur-xs transition-all duration-300">
         {spinnerContent}
       </div>
     );

@@ -7,8 +7,8 @@ export interface AdminProductItem {
   description: string;
   categoryId: string;
   categoryName: string;
-  brandId: string;
-  brandName: string;
+  brandId: string | null;
+  brandName: string | null;
   unit: string;
   basePrice: number;
   imageUrl: string;
@@ -66,11 +66,12 @@ export interface GetAdminProductsParams {
   search?: string;
 }
 
+export interface GetProductsByCategoryParams {
+  page?: number;
+  size?: number;
+}
+
 export const adminProductService = {
-  /**
-   * GET: /api/admin/products
-   * Lấy danh sách sản phẩm quản trị có phân trang
-   */
   getProducts: async (
     params?: GetAdminProductsParams,
   ): Promise<ApiResponse<SpringPageResponse<AdminProductItem>>> => {
@@ -86,10 +87,21 @@ export const adminProductService = {
     return response.data;
   },
 
-  /**
-   * GET: /api/admin/products/{productId}
-   * Lấy thông tin chi tiết của 1 sản phẩm theo ID
-   */
+  getProductsByCategoryId: async (
+    categoryId: string,
+    params?: GetProductsByCategoryParams,
+  ): Promise<ApiResponse<SpringPageResponse<AdminProductItem>>> => {
+    const response = await axiosClient.get<
+      ApiResponse<SpringPageResponse<AdminProductItem>>
+    >(`/api/admin/products/category/${categoryId}`, {
+      params: {
+        page: params?.page ?? 0,
+        size: params?.size ?? 100,
+      },
+    });
+    return response.data;
+  },
+
   getProductById: async (
     productId: string,
   ): Promise<ApiResponse<AdminProductItem>> => {
@@ -99,10 +111,6 @@ export const adminProductService = {
     return response.data;
   },
 
-  /**
-   * POST: /api/admin/products
-   * Thêm mới một sản phẩm vào hệ thống
-   */
   createProduct: async (
     payload: SaveAdminProductRequest,
   ): Promise<ApiResponse<AdminProductItem>> => {
@@ -113,10 +121,6 @@ export const adminProductService = {
     return response.data;
   },
 
-  /**
-   * PUT: /api/admin/products/{productId}
-   * Cập nhật thông tin sản phẩm theo ID
-   */
   updateProduct: async (
     productId: string,
     payload: SaveAdminProductRequest,
@@ -128,20 +132,13 @@ export const adminProductService = {
     return response.data;
   },
 
-  /**
-   * DELETE: /api/admin/products/{productId}
-   * Xóa sản phẩm khỏi hệ thống theo ID
-   */
   deleteProduct: async (productId: string): Promise<ApiResponse<string>> => {
     const response = await axiosClient.delete<ApiResponse<string>>(
       `/api/admin/products/${productId}`,
     );
     return response.data;
   },
-  /**
-   * PATCH: /api/admin/products/{productId}/restore
-   * Khôi phục sản phẩm đã bị xóa/vô hiệu hóa
-   */
+
   restoreProduct: async (
     productId: string,
   ): Promise<ApiResponse<AdminProductItem>> => {

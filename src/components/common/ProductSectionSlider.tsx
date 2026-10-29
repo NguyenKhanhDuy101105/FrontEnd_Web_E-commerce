@@ -17,6 +17,7 @@ export interface ProductSectionSliderProps {
   headerTextColor?: string;
   badgeBgColor?: string;
   badgeTextColor?: string;
+  onAddToCart?: (productId: string) => void | Promise<void>;
 }
 
 export default function ProductSectionSlider({
@@ -31,6 +32,7 @@ export default function ProductSectionSlider({
   headerTextColor = "text-white",
   badgeBgColor = "bg-white",
   badgeTextColor = "text-orange-600",
+  onAddToCart, // 2. Nhận onAddToCart
 }: ProductSectionSliderProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -119,7 +121,7 @@ export default function ProductSectionSlider({
                   key={product.id}
                   className="shrink-0 w-[calc((100%-1*0.75rem)/2)] sm:w-[calc((100%-2*1rem)/3)] md:w-[calc((100%-3*1rem)/4)] lg:w-[calc((100%-4*1rem)/5)] snap-start"
                 >
-                  <ProductCard {...product} />
+                  <ProductCard {...product} onAddToCart={onAddToCart} />
                 </div>
               ))
             )}

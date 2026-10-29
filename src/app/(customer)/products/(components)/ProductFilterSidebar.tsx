@@ -83,13 +83,14 @@ export default function ProductFilterSidebar({
   useEffect(() => {
     if (currentCategoryId && allCategories.length > 0) {
       const rootL1 = findRootL1Category(allCategories, currentCategoryId);
-      if (rootL1 && !rootL1Id) {
+      if (rootL1) {
         setRootL1Id(rootL1.id);
       }
       setSelectedCategoryIds([currentCategoryId]);
     } else if (currentCategoryId) {
       setSelectedCategoryIds([currentCategoryId]);
     } else {
+      setRootL1Id(null);
       setSelectedCategoryIds([]);
     }
   }, [currentCategoryId, allCategories]);

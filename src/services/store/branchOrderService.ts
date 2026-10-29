@@ -1,9 +1,5 @@
 import axiosClient from "@/src/lib/axiosClient";
 
-// ==========================================
-// 1. TYPES & INTERFACES
-// ==========================================
-
 export interface ApiResponse<T> {
   status: string;
   message: string;
@@ -25,7 +21,6 @@ export type DeliveryType = "DELIVERY" | "PICKUP";
 export type PaymentMethod = "COD" | "VNPAY";
 export type PaymentStatus = "UNPAID" | "PAID" | "FAILED" | "REFUNDED";
 
-// Item sản phẩm trong đơn hàng chi nhánh
 export interface BranchOrderItem {
   productId: string;
   productName: string;
@@ -37,7 +32,6 @@ export interface BranchOrderItem {
   totalPrice: number;
 }
 
-// Tóm tắt đơn hàng trong danh sách (GET /api/branches/{branchId}/orders)
 export interface BranchOrderSummary {
   id: string;
   orderCode: string;
@@ -52,7 +46,6 @@ export interface BranchOrderSummary {
   deliveredAt?: string | null;
 }
 
-// Chi tiết đơn hàng chi nhánh đầy đủ
 export interface BranchOrderDetail {
   id: string;
   orderCode: string;
@@ -78,7 +71,6 @@ export interface BranchOrderDetail {
   items: BranchOrderItem[];
 }
 
-// Phân trang Spring Data
 export interface PageableBranchOrdersResponse {
   content: BranchOrderSummary[];
   page: number;
@@ -87,21 +79,15 @@ export interface PageableBranchOrdersResponse {
   totalPages: number;
 }
 
-// Params cho GET /api/branches/{branchId}/orders
 export interface GetBranchOrdersParams {
   status?: BranchOrderStatus;
   page?: number;
   size?: number;
 }
 
-// Request Payload cho Hủy đơn hoặc Giao hàng thất bại
 export interface OrderReasonPayload {
   reason: string;
 }
-
-// ==========================================
-// 2. SERVICE API (8 ENDPOINTS)
-// ==========================================
 
 export const branchOrderService = {
   /**

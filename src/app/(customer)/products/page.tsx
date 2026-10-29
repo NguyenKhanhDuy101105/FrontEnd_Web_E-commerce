@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import ProductCardGrid, {
@@ -36,6 +36,7 @@ const SORT_OPTIONS = [
 function ProductsListingContent() {
   const searchParams = useSearchParams();
   const categoryId = searchParams.get("categoryId");
+  const searchQuery = searchParams.get("search") || searchParams.get("keyword"); // Lấy từ khóa tìm kiếm từ URL
 
   const minPrice = searchParams.get("minPrice");
   const maxPrice = searchParams.get("maxPrice");
@@ -60,6 +61,7 @@ function ProductsListingContent() {
         (opt) => opt.key === activeSortKey,
       );
 
+      // Thêm tham số search / keyword vào params
       const params: GetProductsParams = {
         branchId,
         page,
@@ -67,6 +69,7 @@ function ProductsListingContent() {
         ...(selectedOption?.apiKey ? { sort: selectedOption.apiKey } : {}),
         ...(minPrice ? { minPrice: Number(minPrice) } : {}),
         ...(maxPrice ? { maxPrice: Number(maxPrice) } : {}),
+        ...(searchQuery ? { search: searchQuery, keyword: searchQuery } : {}), // Truyền từ khóa xuống API
       };
 
       if (categoryId) {
@@ -86,6 +89,8 @@ function ProductsListingContent() {
             item.basePrice > item.displayPrice ? item.basePrice : undefined,
           unit: item.unit || "Kg",
           rating: 5.0,
+          stockQuantity: item.stockQuantity,
+          inStock: item.inStock,
         }));
         setProducts(mapped);
         setTotalPages(res.data.totalPages || 0);
@@ -101,7 +106,15 @@ function ProductsListingContent() {
     } finally {
       setLoading(false);
     }
-  }, [branchId, categoryId, page, activeSortKey, minPrice, maxPrice]);
+  }, [
+    branchId,
+    categoryId,
+    page,
+    activeSortKey,
+    minPrice,
+    maxPrice,
+    searchQuery,
+  ]);
 
   useEffect(() => {
     fetchProducts();
@@ -148,17 +161,27 @@ function ProductsListingContent() {
           </Link>
           <span>&gt;</span>
           <span className="text-slate-800 font-medium">Danh sách sản phẩm</span>
+          {searchQuery && (
+            <>
+              <span>&gt;</span>
+              <span className="text-emerald-700 font-bold">
+                Tìm kiếm: &quot;{searchQuery}&quot;
+              </span>
+            </>
+          )}
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
           <div className="lg:col-span-1">
-            <ProductFilterSidebar />
+            <ProductFilterSidebar key={categoryId || searchQuery || "all"} />
           </div>
 
           <div className="lg:col-span-3 space-y-4">
             <div className="bg-white rounded-t-xl p-4 border border-slate-200 space-y-3">
               <h1 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
-                Sản phẩm
+                {searchQuery
+                  ? `Kết quả tìm kiếm cho "${searchQuery}"`
+                  : "Sản phẩm"}
                 <span className="text-sm font-normal text-slate-400">
                   ({totalElements} sản phẩm)
                 </span>
@@ -199,7 +222,8 @@ function ProductsListingContent() {
               </div>
             ) : products.length === 0 ? (
               <div className="bg-white p-12 text-center border border-slate-200 text-slate-500 text-sm">
-                Hiện không có sản phẩm nào phù hợp.
+                Không tìm thấy sản phẩm nào phù hợp với từ khóa &quot;
+                {searchQuery}&quot;.
               </div>
             ) : (
               <div className="space-y-4">

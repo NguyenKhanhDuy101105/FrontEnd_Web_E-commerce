@@ -26,12 +26,10 @@ export default function ProductDiscountManagementPage() {
   const [selectedL1Id, setSelectedL1Id] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
 
-  // States Dữ liệu
   const [discounts, setDiscounts] = useState<ProductDiscountItem[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
 
-  // States Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [discountTarget, setDiscountTarget] =
     useState<DiscountModalTarget | null>(null);
@@ -42,7 +40,6 @@ export default function ProductDiscountManagementPage() {
     useState<ProductDiscountItem | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // 💥 Call API Danh mục
   const fetchCategories = useCallback(async () => {
     try {
       const catRes = await categoriesService.getCategories();
@@ -58,11 +55,9 @@ export default function ProductDiscountManagementPage() {
     }
   }, []);
 
-  // 💥 Call API Sản phẩm & Khuyến mãi
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Tải danh sách Khuyến mãi
       const discountRes = await productDiscountService.getDiscounts();
       if (discountRes.status === "success" && Array.isArray(discountRes.data)) {
         setDiscounts(discountRes.data);
@@ -70,7 +65,6 @@ export default function ProductDiscountManagementPage() {
         setDiscounts([]);
       }
 
-      // 2. Tải danh sách Sản phẩm (Đặt size lớn 1000 để lấy đủ toàn bộ kho sản phẩm)
       const prodRes = await adminProductService.getProducts({
         page: 0,
         size: 100,
@@ -98,7 +92,6 @@ export default function ProductDiscountManagementPage() {
     fetchData();
   }, [fetchData]);
 
-  // 💥 POST: Tạo khuyến mãi
   const handleSaveDiscount = async (data: {
     productIds: string[];
     discountPercent: number;
@@ -110,7 +103,7 @@ export default function ProductDiscountManagementPage() {
       const apiCalls = data.productIds.map((productId) =>
         productDiscountService.createDiscount({
           productId,
-          discountPercent: data.discountPercent,
+          discountPercent: data.discountPercent * 100,
           startsAt: data.startsAt,
           endsAt: data.endsAt,
         }),
@@ -129,7 +122,6 @@ export default function ProductDiscountManagementPage() {
     }
   };
 
-  // 💥 DELETE: Xóa khuyến mãi
   const handleConfirmDelete = async (id: string) => {
     setDeleteLoading(true);
     try {

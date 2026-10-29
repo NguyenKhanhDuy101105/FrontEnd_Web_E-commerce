@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import axiosClient from "@/src/lib/axiosClient";
 import { showToast } from "@/src/utils/toast";
 import { calculateHaversineDistance } from "@/src/utils/distance";
+import { CustomerVoucherItem } from "@/src/services/customer/voucherService";
 
 import AddressSelector, {
   Address,
@@ -22,6 +23,7 @@ import BranchPickupSection from "./components/shipping/BranchPickupSection";
 import OtherRecipientForm, {
   OtherRecipientData,
 } from "./components/shipping/OtherRecipientForm";
+import VoucherSelectModal from "@/src/components/common/VoucherSelectModal";
 
 interface BranchResponseItem {
   id: string;
@@ -35,6 +37,7 @@ interface BranchResponseItem {
 interface CartItemResponse {
   itemId?: string;
   id?: string;
+  productId?: string;
   subtotal?: number;
   unitPrice?: number;
   price?: number;
@@ -60,6 +63,8 @@ interface OrderPayload {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isBuyNow = searchParams.get("buyNow") === "true";
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [nearbyBranches, setNearbyBranches] = useState<BranchNearby[]>([]);
@@ -94,12 +99,25 @@ export default function CheckoutPage() {
   );
   const [note, setNote] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("COD");
-  const [selectedVoucher] = useState<{
-    code: string;
-    discountAmount: number;
-  } | null>(null);
+
+  const [selectedVoucher, setSelectedVoucher] =
+    useState<CustomerVoucherItem | null>(null);
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
+    const savedVoucher = localStorage.getItem("checkout_selected_voucher");
+    if (savedVoucher) {
+      try {
+        setSelectedVoucher(JSON.parse(savedVoucher));
+      } catch (e) {
+        console.error("Lỗi parse checkout_selected_voucher:", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isBuyNow) return;
+
     const savedIds = localStorage.getItem("checkout_selected_item_ids");
     if (savedIds) {
       try {
@@ -112,7 +130,7 @@ export default function CheckoutPage() {
         console.error("Lỗi parse checkout item ids:", e);
       }
     }
-  }, []);
+  }, [isBuyNow]);
 
   useEffect(() => {
     const fetchAddresses = async () => {
@@ -194,6 +212,19 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!selectedBranch?.id) return;
 
+    if (isBuyNow) {
+      const storedItem = sessionStorage.getItem("buy_now_item");
+      if (storedItem) {
+        try {
+          const parsed = JSON.parse(storedItem);
+          setCartItems([parsed]);
+          return;
+        } catch (e) {
+          console.error("Lỗi parse buy_now_item:", e);
+        }
+      }
+    }
+
     const fetchCartByBranch = async () => {
       setLoadingCart(true);
       try {
@@ -208,7 +239,11 @@ export default function CheckoutPage() {
           const filteredItems = items.filter((item) => {
             const rawItem = item as CartItemResponse;
             const itemId = rawItem.itemId || rawItem.id || "";
-            return selectedItemIds.includes(itemId);
+            const productId = rawItem.productId || "";
+            return (
+              selectedItemIds.includes(itemId) ||
+              selectedItemIds.includes(productId)
+            );
           });
           setCartItems(filteredItems);
         } else {
@@ -223,20 +258,22 @@ export default function CheckoutPage() {
     };
 
     fetchCartByBranch();
-  }, [selectedBranch, selectedItemIds]);
+  }, [selectedBranch, selectedItemIds, isBuyNow]);
 
   useEffect(() => {
     fetchAndCalculateBranches(selectedAddress);
   }, [selectedAddress, fetchAndCalculateBranches]);
 
-  const subTotal = cartItems.reduce((sum, item) => {
-    const rawItem = item as CartItemResponse;
-    const itemTotal =
-      rawItem.subtotal ??
-      (rawItem.unitPrice ?? rawItem.price ?? rawItem.basePrice ?? 0) *
-        (rawItem.quantity || 1);
-    return sum + itemTotal;
-  }, 0);
+  const subTotal = useMemo(() => {
+    return cartItems.reduce((sum, item) => {
+      const rawItem = item as CartItemResponse;
+      const itemTotal =
+        rawItem.subtotal ??
+        (rawItem.unitPrice ?? rawItem.price ?? rawItem.basePrice ?? 0) *
+          (rawItem.quantity || 1);
+      return sum + itemTotal;
+    }, 0);
+  }, [cartItems]);
 
   const distanceKm = selectedBranch?.distanceKm || 0;
 
@@ -244,6 +281,40 @@ export default function CheckoutPage() {
     distanceKm > 6 ? Math.round((distanceKm - 6) * 5000) : 0;
 
   const shippingFee = deliveryType === "PICKUP" ? 0 : calculatedShippingFee;
+
+  const discountAmount = useMemo(() => {
+    if (!selectedVoucher || subTotal === 0) return 0;
+
+    if (
+      selectedVoucher.minOrderAmount &&
+      subTotal < selectedVoucher.minOrderAmount
+    ) {
+      return 0;
+    }
+
+    if (selectedVoucher.discountType === "PERCENT") {
+      const calculated = (subTotal * selectedVoucher.discountValue) / 100;
+      if (
+        selectedVoucher.maxDiscountAmount &&
+        calculated > selectedVoucher.maxDiscountAmount
+      ) {
+        return selectedVoucher.maxDiscountAmount;
+      }
+      return calculated;
+    }
+
+    return selectedVoucher.discountValue;
+  }, [selectedVoucher, subTotal]);
+
+  const handleApplyVoucher = (voucher: CustomerVoucherItem) => {
+    setSelectedVoucher(voucher);
+    localStorage.setItem("checkout_selected_voucher", JSON.stringify(voucher));
+  };
+
+  const handleRemoveVoucher = () => {
+    setSelectedVoucher(null);
+    localStorage.removeItem("checkout_selected_voucher");
+  };
 
   const handleCreateOrder = async () => {
     if (!selectedBranch) {
@@ -335,24 +406,20 @@ export default function CheckoutPage() {
     try {
       const response = await axiosClient.post("/api/orders", orderPayload);
 
-      // 1. Thông báo đặt hàng thành công
       showToast.success("Đặt hàng thành công!");
 
-      // 2. Xóa các item đã chọn khỏi localStorage
-      localStorage.removeItem("checkout_selected_item_ids");
-
-      // 3. Nếu ứng dụng có lưu giỏ hàng ở Client (React Context / Redux / Zustand),
-      // bạn có thể gọi hàm clearCart() tại đây để cập nhật UI Badge giỏ hàng trên Header.
-      // Ví dụ: clearCart();
+      if (isBuyNow) {
+        sessionStorage.removeItem("buy_now_item");
+      } else {
+        localStorage.removeItem("checkout_selected_item_ids");
+        localStorage.removeItem("checkout_selected_voucher");
+      }
 
       const orderData = response.data?.data || response.data;
 
-      // 4. Phân nhánh điều hướng
       if (paymentMethod === "VNPAY" && orderData?.paymentUrl) {
-        // Nếu thanh toán VNPAY -> Chuyển sang trang thanh toán VNPAY
         window.location.href = orderData.paymentUrl;
       } else {
-        // Thanh toán COD / thành công -> Điều hướng thẳng về Trang chủ
         router.push("/");
       }
     } catch (error: unknown) {
@@ -485,14 +552,15 @@ export default function CheckoutPage() {
             />
 
             <VoucherSection
-              selectedVoucherCode={selectedVoucher?.code}
-              onOpenVoucherModal={() => {}}
+              selectedVoucher={selectedVoucher}
+              onOpenVoucherModal={() => setIsVoucherModalOpen(true)}
+              onRemoveVoucher={handleRemoveVoucher}
             />
 
             <CheckoutSummarySection
               subTotal={subTotal}
               shippingFee={shippingFee}
-              discountAmount={selectedVoucher?.discountAmount || 0}
+              discountAmount={discountAmount}
               distanceKm={deliveryType === "PICKUP" ? 0 : distanceKm}
               isSubmitting={isSubmitting}
               onSubmitOrder={handleCreateOrder}
@@ -500,6 +568,15 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      <VoucherSelectModal
+        isOpen={isVoucherModalOpen}
+        onClose={() => setIsVoucherModalOpen(false)}
+        onApplyVoucher={handleApplyVoucher}
+        branchId={selectedBranch?.id || ""}
+        orderAmount={subTotal}
+        selectedVoucherCode={selectedVoucher?.code}
+      />
     </div>
   );
 }

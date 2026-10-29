@@ -22,12 +22,24 @@ export default function CategoryTreeFilter({
   useEffect(() => {
     if (activeCategoryTree.length > 0) {
       const initial: Record<string, boolean> = {};
-      activeCategoryTree.forEach((cat) => {
-        initial[cat.id] = true;
+
+      activeCategoryTree.forEach((l1) => {
+        // Kiểm tra xem chính L1 hoặc bất kỳ danh mục con L2/L3 nào của nó đang được chọn không
+        const hasSelectedChild =
+          selectedCategoryIds.includes(l1.id) ||
+          l1.children?.some(
+            (l2) =>
+              selectedCategoryIds.includes(l2.id) ||
+              l2.children?.some((l3) => selectedCategoryIds.includes(l3.id)),
+          );
+
+        // Mặc định là false (đóng). Chỉ mở (true) nếu danh mục đó hoặc con của nó đang được chọn.
+        initial[l1.id] = !!hasSelectedChild;
       });
+
       setOpenSections(initial);
     }
-  }, [activeCategoryTree]);
+  }, [activeCategoryTree, selectedCategoryIds]);
 
   const toggleSection = (id: string) => {
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -50,7 +62,7 @@ export default function CategoryTreeFilter({
       ) : (
         <div className="space-y-3.5">
           {activeCategoryTree.map((l1) => {
-            const isL1Open = openSections[l1.id] ?? true;
+            const isL1Open = openSections[l1.id] ?? false;
             const hasChildren = l1.children && l1.children.length > 0;
 
             return (

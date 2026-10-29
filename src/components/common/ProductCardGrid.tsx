@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import {
   HeartIcon as HeartOutline,
   StarIcon,
@@ -45,9 +46,10 @@ export default function ProductCardGrid({
   promotionBadge,
   stockQuantity,
   inStock,
-  onAddToCart,
   onToggleWishlist,
 }: ProductGridProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const { isWishlisted, addWishlistId, removeWishlistId } = useWishlist();
   const { getItemQuantity, addToCart, updateQuantity } = useCart();
 
@@ -56,6 +58,19 @@ export default function ProductCardGrid({
 
   const [isWishlistLoading, setIsWishlistLoading] = useState<boolean>(false);
   const [isCartLoading, setIsCartLoading] = useState<boolean>(false);
+
+  const checkAuth = (): boolean => {
+    if (typeof window === "undefined") return false;
+    const token =
+      localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+    if (!token) {
+      showToast.error("Vui lòng đăng nhập để thực hiện thao tác này!");
+      router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
+      return false;
+    }
+    return true;
+  };
 
   const isOutOfStock =
     inStock !== undefined
@@ -68,6 +83,7 @@ export default function ProductCardGrid({
     e.preventDefault();
     e.stopPropagation();
 
+    if (!checkAuth()) return;
     if (isWishlistLoading) return;
 
     const nextState = !wishlist;
@@ -115,16 +131,15 @@ export default function ProductCardGrid({
     }
   };
 
-  // Logic Thêm vào giỏ hàng
   const handleAddToCartClick = async (e: React.MouseEvent) => {
     e.preventDefault();
-    e.stopPropagation(); // 🔴 Chống lan truyền sự kiện ra thẻ Link bọc ngoài
+    e.stopPropagation();
 
+    if (!checkAuth()) return;
     if (isOutOfStock || isCartLoading) return;
 
     setIsCartLoading(true);
     try {
-      // Chỉ gọi hàm addToCart của Context, KHÔNG gọi thêm prop onAddToCart nữa
       await addToCart(id, 1);
     } catch (error) {
       console.error("Lỗi khi thêm giỏ hàng:", error);
@@ -133,10 +148,11 @@ export default function ProductCardGrid({
     }
   };
 
-  // Logic Tăng số lượng
   const handleIncreaseQuantity = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (!checkAuth()) return;
     if (isCartLoading) return;
 
     setIsCartLoading(true);
@@ -147,10 +163,11 @@ export default function ProductCardGrid({
     }
   };
 
-  // Logic Giảm số lượng (khi giảm về 0 sẽ quay lại nút Thêm vào giỏ)
   const handleDecreaseQuantity = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (!checkAuth()) return;
     if (isCartLoading) return;
 
     setIsCartLoading(true);
@@ -164,7 +181,10 @@ export default function ProductCardGrid({
   return (
     <div className="bg-white border border-slate-200 rounded-sm transition-shadow duration-200 flex flex-col justify-between p-3.5 relative group h-full hover:shadow-md">
       <div>
-        <div className="relative w-full aspect-square bg-white mb-3 overflow-hidden rounded-sm">
+        <Link
+          href={`/products/${id}`}
+          className="relative block w-full aspect-square bg-white mb-3 overflow-hidden rounded-sm cursor-pointer"
+        >
           <Image
             src={image || "/images/Banner1.jpeg"}
             alt={title}
@@ -181,7 +201,7 @@ export default function ProductCardGrid({
               </span>
             </div>
           )}
-        </div>
+        </Link>
 
         <div className="space-y-1">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -240,7 +260,6 @@ export default function ProductCardGrid({
         )}
       </div>
 
-      {/* KHU VỰC TĂNG / GIẢM SỐ LƯỢNG HOẶC THÊM VÀO GIỎ (TÔNG MÀU XANH #0d5c3a) */}
       <div className="mt-3 shrink-0 w-full">
         {isOutOfStock ? (
           <button
@@ -251,7 +270,6 @@ export default function ProductCardGrid({
             Tạm hết hàng
           </button>
         ) : cartQuantity > 0 ? (
-          /* GIAO DIỆN TĂNG / GIẢM SỐ LƯỢNG KHI ĐÃ CÓ TRONG GIỎ HÀNG */
           <div className="flex items-center justify-between w-full p-0.5 border border-[#0d5c3a] rounded-sm bg-white shadow-xs">
             <button
               type="button"
@@ -278,7 +296,6 @@ export default function ProductCardGrid({
             </button>
           </div>
         ) : (
-          /* GIAO DIỆN THÊM VÀO GIỎ HÀNG MẶC ĐỊNH */
           <button
             type="button"
             disabled={isCartLoading}

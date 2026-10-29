@@ -5,24 +5,17 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useBranch } from "@/src/context/BranchContext";
-import axiosClient from "@/src/lib/axiosClient";
-
-interface SuggestedProduct {
-  id: string;
-  name: string;
-  imageUrl?: string;
-  displayPrice: number;
-  basePrice?: number;
-  unit?: string;
-  categoryName?: string;
-}
+import {
+  productService,
+  ProductSearchSuggestion,
+} from "@/src/services/customer/productService";
 
 export default function SearchBar() {
   const router = useRouter();
   const { branchId } = useBranch();
 
   const [query, setQuery] = useState("");
-  const [suggestions, setSuggestions] = useState<SuggestedProduct[]>([]);
+  const [suggestions, setSuggestions] = useState<ProductSearchSuggestion[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -38,11 +31,13 @@ export default function SearchBar() {
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await axiosClient.get("/api/products/search-suggestions", {
-          params: { keyword: query.trim(), branchId, limit: 3 },
+        const res = await productService.getSearchSuggestions({
+          keyword: query.trim(),
+          branchId,
+          limit: 3,
         });
 
-        const items = res.data?.data || res.data || [];
+        const items = res.data || [];
         setSuggestions(Array.isArray(items) ? items : []);
         setIsOpen(true);
       } catch (err) {
@@ -98,9 +93,7 @@ export default function SearchBar() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onFocus={() =>
-            query.trim() && suggestions.length > 0 && setIsOpen(true)
-          }
+          onFocus={() => query.trim() && setIsOpen(true)}
           placeholder="Bạn muốn mua gì hôm nay..."
           className="w-full bg-white text-slate-800 text-sm placeholder-slate-400 rounded-full pl-5 pr-20 py-2 border border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all duration-200 shadow-sm"
         />

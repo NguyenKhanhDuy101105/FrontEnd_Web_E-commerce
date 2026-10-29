@@ -1,10 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import {
-  MagnifyingGlassIcon,
-  ArrowPathIcon,
-} from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import {
   categoriesService,
   CategoryItem,
@@ -16,10 +13,8 @@ import ProductModal from "./components/ProductModal";
 import DeleteProductModal from "./components/DeleteProductModal";
 
 export default function AdminProductPage() {
-  const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [selectedL1Id, setSelectedL1Id] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
 
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -33,6 +28,9 @@ export default function AdminProductPage() {
   const [deletingProduct, setDeletingProduct] = useState<ProductItem | null>(
     null,
   );
+
+  // Dùng refreshKey để trigger reload lại sản phẩm trong ProductTable khi thêm/sửa/xóa thành công
+  const [refreshKey, setRefreshKey] = useState<number>(0);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -49,29 +47,6 @@ export default function AdminProductPage() {
     }
   }, []);
 
-  const fetchProducts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const prodRes = await adminProductService.getProducts({
-        page: 0,
-        size: 100,
-        search: searchTerm.trim() || undefined,
-      });
-
-      if (prodRes && prodRes.data && Array.isArray(prodRes.data.content)) {
-        setProducts(prodRes.data.content as unknown as ProductItem[]);
-      } else {
-        setProducts([]);
-      }
-    } catch (error) {
-      console.error("Lỗi khi tải sản phẩm:", error);
-      showToast.error("Không thể tải danh sách sản phẩm!");
-      setProducts([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [searchTerm]);
-
   useEffect(() => {
     let isMounted = true;
     if (isMounted) fetchCategories();
@@ -80,13 +55,9 @@ export default function AdminProductPage() {
     };
   }, [fetchCategories]);
 
-  useEffect(() => {
-    let isMounted = true;
-    if (isMounted) fetchProducts();
-    return () => {
-      isMounted = false;
-    };
-  }, [fetchProducts]);
+  const handleRefresh = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
 
   const handleAddProductToCategory = (categoryId: string) => {
     setEditingProduct(null);
@@ -103,18 +74,20 @@ export default function AdminProductPage() {
     setDeletingProduct(item);
     setIsDeleteModalOpen(true);
   };
+
   const handleRestoreProduct = async (item: ProductItem) => {
     try {
       const res = await adminProductService.restoreProduct(item.id);
       if (res && res.status === "success") {
         showToast.success(`Khôi phục sản phẩm "${item.name}" thành công!`);
-        fetchProducts();
+        handleRefresh();
       }
     } catch (error) {
       console.error("Lỗi khôi phục sản phẩm:", error);
       showToast.error("Không thể khôi phục sản phẩm, vui lòng thử lại!");
     }
   };
+
   return (
     <div className="p-6 bg-slate-50 min-h-screen text-slate-800 space-y-6">
       <div className="flex items-center justify-between">
@@ -162,22 +135,17 @@ export default function AdminProductPage() {
         </div>
       )}
 
-      {loading ? (
-        <div className="py-16 text-center text-slate-400 text-xs font-medium bg-white rounded-lg border border-slate-200/80">
-          <ArrowPathIcon className="w-6 h-6 animate-spin mx-auto mb-2 text-[#0d5c3a]" />
-          Đang tải danh sách sản phẩm...
-        </div>
-      ) : (
-        <ProductTable
-          products={products}
-          categories={categories}
-          selectedL1Id={selectedL1Id}
-          onEdit={handleOpenEditModal}
-          onDelete={handleOpenDeleteModal}
-          onRestore={handleRestoreProduct}
-          onAddProductToCategory={handleAddProductToCategory}
-        />
-      )}
+      {/* ProductTable đảm nhận việc tự fetch lười theo từng Category ID */}
+      <ProductTable
+        categories={categories}
+        selectedL1Id={selectedL1Id}
+        searchTerm={searchTerm}
+        refreshKey={refreshKey}
+        onEdit={handleOpenEditModal}
+        onDelete={handleOpenDeleteModal}
+        onRestore={handleRestoreProduct}
+        onAddProductToCategory={handleAddProductToCategory}
+      />
 
       <ProductModal
         isOpen={isModalOpen}
@@ -188,7 +156,7 @@ export default function AdminProductPage() {
           setIsModalOpen(false);
           setEditingProduct(null);
         }}
-        onSuccess={fetchProducts}
+        onSuccess={handleRefresh}
       />
 
       <DeleteProductModal
@@ -198,7 +166,7 @@ export default function AdminProductPage() {
           setIsDeleteModalOpen(false);
           setDeletingProduct(null);
         }}
-        onSuccess={fetchProducts}
+        onSuccess={handleRefresh}
       />
     </div>
   );

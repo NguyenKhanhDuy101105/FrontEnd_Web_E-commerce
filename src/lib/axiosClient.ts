@@ -27,16 +27,22 @@ axiosClient.interceptors.response.use(
       const serverMessage = error.response?.data?.message;
 
       if (status === 401) {
-        showToast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!");
-
         localStorage.removeItem("accessToken");
         localStorage.removeItem("token");
         localStorage.removeItem("user");
 
-        if (!window.location.pathname.startsWith("/auth/login")) {
-          const loginUrl = `/auth/login?redirect=${encodeURIComponent(
-            window.location.pathname,
-          )}`;
+        const protectedRoutes = ["/account", "/checkout", "/orders"];
+        const currentPath = window.location.pathname;
+        const isProtectedRoute = protectedRoutes.some((route) =>
+          currentPath.startsWith(route),
+        );
+        const isAuthRoute = currentPath.startsWith("/auth");
+
+        if (isProtectedRoute && !isAuthRoute) {
+          showToast.error(
+            "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!",
+          );
+          const loginUrl = `/auth/login?redirect=${encodeURIComponent(currentPath)}`;
           window.location.replace(loginUrl);
         }
       } else if (status === 403) {

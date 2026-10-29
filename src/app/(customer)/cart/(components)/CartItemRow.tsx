@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { TrashIcon } from "@heroicons/react/24/outline";
-import { CartItem } from "@/src/context/CartContext"; // 👈 Sửa dòng import này từ CartContext
+import { CartItem } from "@/src/context/CartContext";
 
 interface CartItemRowProps {
   item: CartItem;
@@ -35,19 +36,25 @@ export default function CartItemRow({
           className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 mt-2 sm:mt-5 cursor-pointer shrink-0"
         />
 
-        <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-sm border border-slate-100 p-1 shrink-0 overflow-hidden">
+        <Link
+          href={`/products/${item.productId}`}
+          className="relative w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-sm border border-slate-100 p-1 shrink-0 overflow-hidden block group"
+        >
           <Image
             src={item.imageUrl || "/images/Banner1.jpeg"}
             alt={item.productName}
             fill
-            className="object-contain rounded-sm"
+            className="object-contain rounded-sm group-hover:scale-105 transition-transform duration-200"
           />
-        </div>
+        </Link>
 
         <div className="flex-1 min-w-35 space-y-1">
-          <h4 className="text-xs sm:text-sm font-semibold text-slate-800 leading-snug line-clamp-2">
+          <Link
+            href={`/products/${item.productId}`}
+            className="text-xs sm:text-sm font-semibold text-slate-800 leading-snug line-clamp-2 hover:text-emerald-600 transition-colors block"
+          >
             {item.productName}
-          </h4>
+          </Link>
           <p className="text-[10px] sm:text-[11px] text-slate-400">
             SKU: {item.productId.slice(0, 8)}
           </p>
@@ -120,14 +127,6 @@ export default function CartItemRow({
             {item.subtotal.toLocaleString("vi-VN")}đ
           </span>
         </div>
-      </div>
-
-      <div className="pl-0 sm:pl-7">
-        <textarea
-          rows={1}
-          placeholder="Ghi chú sản phẩm"
-          className="w-full text-xs p-2 sm:p-2.5 rounded-sm border border-slate-200 focus:border-emerald-500 focus:outline-none text-slate-600 bg-slate-50/50 resize-none"
-        />
       </div>
     </div>
   );

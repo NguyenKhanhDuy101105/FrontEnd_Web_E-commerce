@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import {
   ChatBubbleLeftRightIcon,
   XMarkIcon,
@@ -11,6 +12,7 @@ import {
   PaperClipIcon,
   FaceSmileIcon,
 } from "@heroicons/react/24/outline";
+import { showToast } from "@/src/utils/toast";
 
 interface Message {
   id: string;
@@ -20,6 +22,9 @@ interface Message {
 }
 
 export default function ChatWidget() {
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [chatMode, setChatMode] = useState<"ai" | "staff">("ai");
   const [inputMessage, setInputMessage] = useState<string>("");
@@ -50,6 +55,31 @@ export default function ChatWidget() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const checkAuth = (): boolean => {
+    if (typeof window === "undefined") return false;
+    const token =
+      localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+    if (!token) {
+      showToast.error("Vui lòng đăng nhập để sử dụng tính năng hỗ trợ chat!");
+      router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
+      return false;
+    }
+    return true;
+  };
+
+  const handleToggleWidget = () => {
+    if (!isOpen) {
+      if (!checkAuth()) return;
+    }
+    setIsOpen(!isOpen);
+  };
+
+  const handleSwitchMode = (mode: "ai" | "staff") => {
+    if (!checkAuth()) return;
+    setChatMode(mode);
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -63,6 +93,8 @@ export default function ChatWidget() {
   const handleSendMessage = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!inputMessage.trim()) return;
+
+    if (!checkAuth()) return;
 
     const newMsg: Message = {
       id: Date.now().toString(),
@@ -103,6 +135,7 @@ export default function ChatWidget() {
   ];
 
   const handleQuickPrompt = (promptText: string) => {
+    if (!checkAuth()) return;
     setInputMessage(promptText);
   };
 
@@ -112,7 +145,7 @@ export default function ChatWidget() {
     <>
       <div className="fixed bottom-6 right-6 z-50">
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={handleToggleWidget}
           aria-label="Mở cửa sổ hỗ trợ"
           className="relative w-14 h-14 rounded-full bg-linear-to-r from-emerald-500 to-teal-600 text-white shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer group"
         >
@@ -175,7 +208,7 @@ export default function ChatWidget() {
           <div className="bg-slate-800/90 p-1 rounded-xl flex items-center border border-slate-700/60">
             <button
               type="button"
-              onClick={() => setChatMode("ai")}
+              onClick={() => handleSwitchMode("ai")}
               className={`flex-1 py-1.5 text-xs font-bold rounded-lg flex items-center justify-center space-x-1.5 transition-all cursor-pointer ${
                 chatMode === "ai"
                   ? "bg-emerald-500 text-white shadow-xs"
@@ -188,7 +221,7 @@ export default function ChatWidget() {
 
             <button
               type="button"
-              onClick={() => setChatMode("staff")}
+              onClick={() => handleSwitchMode("staff")}
               className={`flex-1 py-1.5 text-xs font-bold rounded-lg flex items-center justify-center space-x-1.5 transition-all cursor-pointer ${
                 chatMode === "staff"
                   ? "bg-emerald-500 text-white shadow-xs"

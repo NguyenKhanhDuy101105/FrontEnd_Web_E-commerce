@@ -25,7 +25,6 @@ export default function InventoryDetailView({
 }: InventoryDetailViewProps) {
   const categories = inventoryData?.categories || [];
 
-  // Tab Danh mục Cấp 1 đang chọn (Mặc định chọn tab đầu tiên)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
 
   useEffect(() => {
@@ -39,7 +38,6 @@ export default function InventoryDetailView({
     {},
   );
 
-  // Lấy danh mục Cấp 1 hiện tại
   const currentCategory = categories.find(
     (c) => c.categoryId === selectedCategoryId,
   );
@@ -53,7 +51,6 @@ export default function InventoryDetailView({
 
   return (
     <div className="space-y-5">
-      {/* 1. Header Chi Nhánh & Tổng Tồn Kho */}
       <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
         <div className="flex items-center gap-3">
           <button
@@ -92,7 +89,6 @@ export default function InventoryDetailView({
         </div>
       </div>
 
-      {/* 2. Ô Tìm Kiếm Sản Phẩm */}
       <div className="bg-white p-3.5 rounded-lg border border-slate-200/80 shadow-xs">
         <div className="relative w-full">
           <MagnifyingGlassIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -106,7 +102,6 @@ export default function InventoryDetailView({
         </div>
       </div>
 
-      {/* 3. Thanh Tabs Danh Mục Cấp 1 */}
       {categories.length > 0 && (
         <div className="bg-white p-3.5 rounded-lg border border-slate-200/80 shadow-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
@@ -140,10 +135,8 @@ export default function InventoryDetailView({
         </div>
       )}
 
-      {/* 4. Danh Sách Accordion Nhóm Danh Mục Con (subGroups) */}
       <div className="space-y-3">
         {currentCategory?.subGroups.map((group) => {
-          // Lọc danh sách sản phẩm theo từ khóa tìm kiếm
           const filteredProducts = group.products.filter((prod) =>
             prod.productName.toLowerCase().includes(searchTerm.toLowerCase()),
           );
@@ -155,7 +148,6 @@ export default function InventoryDetailView({
               key={group.subCategoryId}
               className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden"
             >
-              {/* Accordion Header */}
               <div
                 onClick={() => toggleGroup(group.subCategoryId)}
                 className="flex items-center justify-between p-3.5 bg-white hover:bg-slate-50/50 transition-colors cursor-pointer"
@@ -181,12 +173,16 @@ export default function InventoryDetailView({
                   </div>
                 </div>
 
-                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-[#0d5c3a]">
-                  {group.totalProducts} sản phẩm ({group.totalGroupStock} SP)
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-[#0d5c3a] whitespace-nowrap">
+                  <span className="inline sm:hidden">
+                    {group.totalProducts} sp
+                  </span>
+                  <span className="hidden sm:inline">
+                    {group.totalProducts} sản phẩm ({group.totalGroupStock} SP)
+                  </span>
                 </span>
               </div>
 
-              {/* Bảng Danh Sách Sản Phẩm Tồn Kho */}
               {isExpanded && (
                 <div className="border-t border-slate-100">
                   {filteredProducts.length === 0 ? (

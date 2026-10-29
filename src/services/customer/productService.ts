@@ -1,6 +1,5 @@
 import axiosClient from "../../lib/axiosClient";
 
-// 1. Interface đại diện cho sản phẩm
 export interface ProductItem {
   id: string;
   sku: string;
@@ -22,7 +21,16 @@ export interface ProductItem {
   inStock: boolean;
 }
 
-// 2. Interface phân trang chuẩn Spring Boot
+export interface ProductSearchSuggestion {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  displayPrice: number;
+  basePrice: number;
+  unit: string;
+  categoryName: string;
+}
+
 export interface PageResponse<T> {
   content: T[];
   empty: boolean;
@@ -35,17 +43,16 @@ export interface PageResponse<T> {
   totalPages: number;
 }
 
-// 3. Interface Response API tổng quát
 export interface ApiResponse<T> {
   status: string;
   message: string;
   data: T;
 }
 
-// 4. Interface các Query Parameters khi lọc danh sách sản phẩm
 export interface GetProductsParams {
-  branchId: string; // Required
+  branchId: string;
   keyword?: string;
+  search?: string;
   categoryId?: string;
   includeDescendants?: boolean;
   brandIds?: string[];
@@ -59,7 +66,12 @@ export interface GetProductsParams {
   direction?: "ASC" | "DESC" | string;
 }
 
-// 5. Product Service Module
+export interface GetSearchSuggestionsParams {
+  branchId: string;
+  keyword: string;
+  limit?: number;
+}
+
 export const productService = {
   /**
    * GET: /api/products
@@ -78,6 +90,26 @@ export const productService = {
     const response = await axiosClient.get<
       ApiResponse<PageResponse<ProductItem>>
     >("/api/products", { params: queryParams });
+
+    return response.data;
+  },
+
+  /**
+   * GET: /api/products/search-suggestions
+   * Lấy danh sách gợi ý tìm kiếm sản phẩm theo branchId và keyword
+   */
+  getSearchSuggestions: async (
+    params: GetSearchSuggestionsParams,
+  ): Promise<ApiResponse<ProductSearchSuggestion[]>> => {
+    const response = await axiosClient.get<
+      ApiResponse<ProductSearchSuggestion[]>
+    >("/api/products/search-suggestions", {
+      params: {
+        branchId: params.branchId,
+        keyword: params.keyword,
+        limit: params.limit ?? 3,
+      },
+    });
 
     return response.data;
   },

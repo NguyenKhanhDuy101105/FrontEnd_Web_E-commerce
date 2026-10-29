@@ -14,9 +14,11 @@ export default function CustomerLayout({
   useAuthGuard();
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800">
+    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800 relative">
       <Header />
-      <main className="flex-1">{children}</main>
+
+      <main className="flex-1 pb-2 md:pb-0">{children}</main>
+
       <div className="hidden md:block">
         <Footer />
         <ChatWidget />

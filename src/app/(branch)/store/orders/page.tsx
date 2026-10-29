@@ -24,37 +24,30 @@ const STATUSES: BranchOrderStatus[] = [
 ];
 
 export default function BranchOrderManagementPage() {
-  // 1. LẤY BRANCH_ID TỪ LOCALSTORAGE / AUTH CONTEXT (THAY CHO USEPARAMS)
   const [branchId, setBranchId] = useState<string>("");
 
   useEffect(() => {
-    // Lấy branchId lưu trong localStorage khi nhân viên đăng nhập thành công
     const storedBranchId =
       localStorage.getItem("branchId") ||
-      "02a024ec-18dc-42b1-8f85-37d893e99581"; // Fallback ID test từ Swagger
+      "02a024ec-18dc-42b1-8f85-37d893e99581";
     setBranchId(storedBranchId);
   }, []);
 
-  // State Lọc & Phân trang
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isExpressOnly, setIsExpressOnly] = useState<boolean>(false);
   const [page, setPage] = useState<number>(0);
 
-  // State Data từ API
   const [orders, setOrders] = useState<BranchOrderSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalElements, setTotalElements] = useState<number>(0);
 
-  // Dynamic Status Counts từ API
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
 
-  // State Modal Chi tiết
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
 
-  // Tải đếm số lượng cho từng Tab trạng thái
   const fetchStatusCounts = useCallback(async () => {
     if (!branchId) return;
     try {
@@ -86,7 +79,6 @@ export default function BranchOrderManagementPage() {
     }
   }, [branchId]);
 
-  // Tải danh sách đơn chính
   const fetchOrders = useCallback(async () => {
     if (!branchId) return;
     setLoading(true);
@@ -118,7 +110,6 @@ export default function BranchOrderManagementPage() {
     }
   }, [branchId, fetchOrders, fetchStatusCounts]);
 
-  // Tính tổng doanh thu
   const totalRevenue = useMemo(() => {
     return orders.reduce((sum, item) => sum + (item.totalAmount || 0), 0);
   }, [orders]);
@@ -126,10 +117,8 @@ export default function BranchOrderManagementPage() {
   return (
     <div className="p-4 sm:p-6 bg-slate-50 min-h-screen text-slate-800 space-y-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
-        {/* Header Chi Nhánh */}
         <BranchHeader />
 
-        {/* 5 Thẻ Metrics KPI Dynamic */}
         <BranchMetricsCards
           totalOrders={statusCounts["ALL"] || totalElements}
           pendingCount={statusCounts["PENDING"] || 0}
@@ -139,7 +128,6 @@ export default function BranchOrderManagementPage() {
           isLoading={loading}
         />
 
-        {/* Thanh Lọc Trạng Thái & Search */}
         <BranchFilterToolbar
           activeTab={activeTab}
           onSelectTab={(tab) => {
@@ -153,7 +141,6 @@ export default function BranchOrderManagementPage() {
           statusCounts={statusCounts}
         />
 
-        {/* Bảng Dữ Liệu Tích Hợp API */}
         <BranchOrderTable
           branchId={branchId}
           orders={orders}
@@ -172,7 +159,6 @@ export default function BranchOrderManagementPage() {
           }}
         />
 
-        {/* Modal Chi Tiết & Tác Vụ */}
         <BranchOrderDetailModal
           branchId={branchId}
           orderId={selectedOrderId}

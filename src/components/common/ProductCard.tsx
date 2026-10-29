@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import {
   HeartIcon as HeartOutline,
   PlusIcon,
@@ -17,7 +18,7 @@ import { useCart } from "@/src/context/CartContext";
 
 export interface ProductProps {
   id: string;
-  slug: string;
+  slug?: string;
   title: string;
   brand?: string;
   image: string;
@@ -27,6 +28,7 @@ export interface ProductProps {
   unit?: string;
   stockQuantity?: number;
   inStock?: boolean;
+  isOutOfStock?: boolean;
   isWishlisted?: boolean;
   onAddToCart?: (id: string) => void;
   onToggleWishlist?: (id: string, isWishlisted: boolean) => void;
@@ -34,7 +36,7 @@ export interface ProductProps {
 
 export default function ProductCard({
   id,
-  slug,
+  slug = id,
   title,
   brand = "URBANMART",
   image,
@@ -44,9 +46,11 @@ export default function ProductCard({
   unit = "Cái",
   stockQuantity,
   inStock,
-  onAddToCart,
+  isOutOfStock: externalIsOutOfStock,
   onToggleWishlist,
 }: ProductProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const { isWishlisted, addWishlistId, removeWishlistId } = useWishlist();
   const { getItemQuantity, addToCart, updateQuantity } = useCart();
 
@@ -56,17 +60,33 @@ export default function ProductCard({
   const [isWishlistLoading, setIsWishlistLoading] = useState<boolean>(false);
   const [isCartLoading, setIsCartLoading] = useState<boolean>(false);
 
+  const checkAuth = (): boolean => {
+    if (typeof window === "undefined") return false;
+    const token =
+      localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+    if (!token) {
+      showToast.error("Vui lòng đăng nhập để thực hiện thao tác này!");
+      router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
+      return false;
+    }
+    return true;
+  };
+
   const isOutOfStock =
-    inStock !== undefined
-      ? !inStock
-      : stockQuantity !== undefined
-        ? stockQuantity <= 0
-        : false;
+    externalIsOutOfStock !== undefined
+      ? externalIsOutOfStock
+      : inStock !== undefined
+        ? !inStock
+        : stockQuantity !== undefined
+          ? stockQuantity <= 0
+          : false;
 
   const handleWishlistClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
+    if (!checkAuth()) return;
     if (isWishlistLoading) return;
 
     const nextState = !wishlist;
@@ -118,6 +138,7 @@ export default function ProductCard({
     e.preventDefault();
     e.stopPropagation();
 
+    if (!checkAuth()) return;
     if (isOutOfStock || isCartLoading) return;
 
     setIsCartLoading(true);
@@ -130,10 +151,11 @@ export default function ProductCard({
     }
   };
 
-  // Logic tăng số lượng
   const handleIncreaseQuantity = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (!checkAuth()) return;
     if (isCartLoading) return;
 
     setIsCartLoading(true);
@@ -144,10 +166,11 @@ export default function ProductCard({
     }
   };
 
-  // Logic giảm số lượng (khi giảm về 0 sẽ tự hiện lại nút Thêm vào giỏ)
   const handleDecreaseQuantity = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (!checkAuth()) return;
     if (isCartLoading) return;
 
     setIsCartLoading(true);
@@ -164,7 +187,7 @@ export default function ProductCard({
 
   return (
     <div className="group relative w-full h-full bg-white rounded-lg border border-slate-100 p-2.5 sm:p-3 flex flex-col justify-between hover:shadow-md transition-all duration-200">
-      <Link href={`/product/${slug}`} className="flex-1 flex flex-col">
+      <Link href={`/products/${slug}`} className="flex-1 flex flex-col">
         <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-white mb-2 shrink-0">
           {discountPercent && !isOutOfStock && (
             <div className="absolute top-0 right-0 z-10 bg-red-500 text-white font-bold text-[10px] sm:text-xs px-1.5 py-0.5 rounded-bl-md">
@@ -238,7 +261,6 @@ export default function ProductCard({
         </div>
       </Link>
 
-      {/* KHU VỰC NÚT THAO TÁC GIỎ HÀNG (DÙNG MÀU XANH #0d5c3a CHUẨN ĐỒNG BỘ) */}
       <div className="shrink-0 w-full">
         {isOutOfStock ? (
           <button
@@ -249,7 +271,6 @@ export default function ProductCard({
             Tạm hết hàng
           </button>
         ) : cartQuantity > 0 ? (
-          /* GIAO DIỆN TĂNG / GIẢM SỐ LƯỢNG KHI SẢN PHẨM ĐÃ CÓ TRONG GIỎ HÀNG */
           <div className="flex items-center justify-between w-full p-1 border border-[#0d5c3a] rounded-lg bg-white shadow-xs">
             <button
               type="button"
@@ -276,7 +297,6 @@ export default function ProductCard({
             </button>
           </div>
         ) : (
-          /* GIAO DIỆN CHƯA CÓ TRONG GIỎ HÀNG -> NÚT THÊM VÀO GIỎ MẶC ĐỊNH */
           <button
             type="button"
             disabled={isCartLoading}

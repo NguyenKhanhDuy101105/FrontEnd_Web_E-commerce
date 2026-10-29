@@ -19,20 +19,20 @@ const getRoleBadge = (role: UserRole) => {
   switch (role) {
     case "ADMIN":
       return (
-        <span className="px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-full text-[11px] font-bold inline-block whitespace-nowrap">
           Admin
         </span>
       );
     case "BRANCH":
       return (
-        <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[11px] font-bold inline-block whitespace-nowrap">
           Chi nhánh
         </span>
       );
     case "CUSTOMER":
     default:
       return (
-        <span className="px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded-full text-[11px] font-bold inline-block whitespace-nowrap">
           Khách hàng
         </span>
       );
@@ -43,19 +43,19 @@ const getStatusBadge = (status: UserStatus) => {
   switch (status) {
     case "ACTIVE":
       return (
-        <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[11px] font-bold inline-block whitespace-nowrap">
           Hoạt động
         </span>
       );
     case "LOCKED":
       return (
-        <span className="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-[11px] font-bold inline-block whitespace-nowrap">
           Tạm khóa
         </span>
       );
     default:
       return (
-        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-[11px] font-bold inline-block whitespace-nowrap">
           {status}
         </span>
       );
@@ -91,16 +91,78 @@ export default function UserTable({
 
   return (
     <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="block lg:hidden divide-y divide-slate-100">
+        {users.map((user) => {
+          const isCustomer = user.role === "CUSTOMER";
+
+          return (
+            <div key={user.id} className="p-4 space-y-3 bg-white text-xs">
+              <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                <div>
+                  <div className="font-bold text-slate-800 text-sm">
+                    {user.fullName}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    ID: {user.id.substring(0, 8)}...
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {!isCustomer && (
+                    <button
+                      type="button"
+                      onClick={() => onEdit(user)}
+                      className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+                      title="Chỉnh sửa"
+                    >
+                      <PencilSquareIcon className="w-4.5 h-4.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onDelete(user)}
+                    className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                    title="Xóa tài khoản"
+                  >
+                    <TrashIcon className="w-4.5 h-4.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-2.5 rounded-lg space-y-1">
+                <div className="text-slate-700 font-medium truncate">
+                  {user.email || "—"}
+                </div>
+                <div className="text-slate-500"> {user.phone || "—"}</div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {getRoleBadge(user.role)}
+                  {getStatusBadge(user.status)}
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  {user.createdAt
+                    ? new Date(user.createdAt).toLocaleDateString("vi-VN")
+                    : "—"}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="hidden lg:block overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-600 font-bold uppercase tracking-wider">
-              <th className="p-3.5 pl-5">Người dùng</th>
-              <th className="p-3.5">Liên hệ</th>
-              <th className="p-3.5">Vai trò</th>
-              <th className="p-3.5">Trạng thái</th>
-              <th className="p-3.5">Ngày tạo</th>
-              <th className="p-3.5 pr-5 text-right">Thao tác</th>
+              <th className="p-3.5 pl-5 whitespace-nowrap">Người dùng</th>
+              <th className="p-3.5 whitespace-nowrap">Liên hệ</th>
+              <th className="p-3.5 whitespace-nowrap">Vai trò</th>
+              <th className="p-3.5 whitespace-nowrap">Trạng thái</th>
+              <th className="p-3.5 whitespace-nowrap">Ngày tạo</th>
+              <th className="p-3.5 pr-5 text-right whitespace-nowrap">
+                Thao tác
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -112,7 +174,7 @@ export default function UserTable({
                   key={user.id}
                   className="hover:bg-slate-50/60 transition-colors"
                 >
-                  <td className="p-3.5 pl-5">
+                  <td className="p-3.5 pl-5 whitespace-nowrap">
                     <div className="font-bold text-slate-800">
                       {user.fullName}
                     </div>
@@ -126,14 +188,18 @@ export default function UserTable({
                     </div>
                     <div className="text-slate-400">{user.phone}</div>
                   </td>
-                  <td className="p-3.5">{getRoleBadge(user.role)}</td>
-                  <td className="p-3.5">{getStatusBadge(user.status)}</td>
-                  <td className="p-3.5 text-slate-500">
+                  <td className="p-3.5 whitespace-nowrap">
+                    {getRoleBadge(user.role)}
+                  </td>
+                  <td className="p-3.5 whitespace-nowrap">
+                    {getStatusBadge(user.status)}
+                  </td>
+                  <td className="p-3.5 text-slate-500 whitespace-nowrap">
                     {user.createdAt
                       ? new Date(user.createdAt).toLocaleDateString("vi-VN")
                       : "—"}
                   </td>
-                  <td className="p-3.5 pr-5 text-right space-x-1">
+                  <td className="p-3.5 pr-5 text-right space-x-1 whitespace-nowrap">
                     {!isCustomer && (
                       <button
                         type="button"

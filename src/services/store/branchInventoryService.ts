@@ -1,16 +1,11 @@
 import axiosClient from "@/src/lib/axiosClient";
 
-// ==========================================
-// 1. TYPES / INTERFACES DỮ LIỆU ĐẦU RA (RESPONSE)
-// ==========================================
-
 export interface ApiResponse<T> {
   status: string;
   message: string;
   data: T;
 }
 
-// 1.1 Category Inventory Item
 export interface SubCategoryInventory {
   categoryId: string;
   categoryName: string;
@@ -29,7 +24,6 @@ export interface CategoryInventory {
   subCategories: SubCategoryInventory[];
 }
 
-// 1.2 Inventory By Categories
 export interface InventoryProduct {
   inventoryId: string;
   productId: string;
@@ -64,7 +58,6 @@ export interface InventoryByCategoriesData {
   categories: InventoryCategoryGroup[];
 }
 
-// 1.3 Inventory Summary
 export interface InventorySummary {
   branchId: string;
   branchName: string;
@@ -77,7 +70,6 @@ export interface InventorySummary {
   expiringSoonCount: number;
 }
 
-// 1.4 Lot / Lô hàng
 export interface InventoryLot {
   lotId: string;
   productId: string;
@@ -87,7 +79,6 @@ export interface InventoryLot {
   receivedAt: string;
 }
 
-// 1.5 Cập nhật tồn kho
 export interface UpdatedInventory {
   inventoryId: string;
   branchId: string;
@@ -99,10 +90,6 @@ export interface UpdatedInventory {
   updatedAt: string;
 }
 
-// ==========================================
-// 2. TYPES / INTERFACES DỮ LIỆU ĐẦU VÀO (PAYLOAD)
-// ==========================================
-
 export interface UpdateInventoryPayload {
   productId: string;
   stockQuantity: number;
@@ -112,16 +99,12 @@ export interface UpdateInventoryPayload {
 export interface CreateLotPayload {
   productId: string;
   quantity: number;
-  expiryDate: string; // YYYY-MM-DD
+  expiryDate: string;
 }
 
 export interface UpdateLotPayload {
-  expiryDate: string; // YYYY-MM-DD
+  expiryDate: string;
 }
-
-// ==========================================
-// 3. SERVICE API (7 ENDPOINTS)
-// ==========================================
 
 export const branchInventoryService = {
   /**

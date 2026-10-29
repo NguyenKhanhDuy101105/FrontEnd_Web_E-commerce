@@ -1,9 +1,5 @@
 import axiosClient from "@/src/lib/axiosClient";
 
-// ==========================================
-// 1. TYPES & INTERFACES
-// ==========================================
-
 export interface ApiResponse<T> {
   status: string;
   message: string;
@@ -13,13 +9,12 @@ export interface ApiResponse<T> {
 export type UserRole = "CUSTOMER" | "BRANCH" | "ADMIN";
 export type UserStatus = "ACTIVE" | "LOCKED";
 
-// Model Người dùng
 export interface User {
   id: string;
   fullName: string;
   phone: string;
   email: string;
-  birthDate?: string; // YYYY-MM-DD
+  birthDate?: string;
   gender?: string;
   role: UserRole;
   status: UserStatus;
@@ -28,7 +23,6 @@ export interface User {
   createdAt: string;
 }
 
-// Phân trang Spring Data
 export interface PageableResponse<T> {
   content: T[];
   totalElements: number;
@@ -41,7 +35,6 @@ export interface PageableResponse<T> {
   empty: boolean;
 }
 
-// Query Params cho GET /api/admin/users
 export interface GetUsersParams {
   keyword?: string;
   role?: UserRole;
@@ -50,34 +43,28 @@ export interface GetUsersParams {
   size?: number;
 }
 
-// Request Payload cho POST /api/admin/users
 export interface CreateUserPayload {
   fullName: string;
   phone: string;
   email: string;
   password?: string;
-  birthDate?: string; // YYYY-MM-DD
+  birthDate?: string;
   gender?: string;
   role: UserRole;
   branchId?: string | null;
 }
 
-// Request Payload cho PUT /api/admin/users/{userId}
 export interface UpdateUserPayload {
   fullName: string;
   phone: string;
   email: string;
   password?: string;
-  birthDate?: string; // YYYY-MM-DD
+  birthDate?: string;
   gender?: string;
   role: UserRole;
   status: UserStatus;
   branchId?: string | null;
 }
-
-// ==========================================
-// 2. SERVICE API (5 ENDPOINTS)
-// ==========================================
 
 export const adminAccountService = {
   /**

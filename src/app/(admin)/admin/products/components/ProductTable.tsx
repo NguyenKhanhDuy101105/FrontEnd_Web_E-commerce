@@ -1,336 +1,367 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  PhotoIcon,
-  PencilSquareIcon,
-  TrashIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   PlusIcon,
-  TagIcon,
-  ExclamationCircleIcon,
+  PencilSquareIcon,
+  TrashIcon,
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import { CategoryItem } from "@/src/services/customer/categoriesService";
+import { adminProductService } from "@/src/services/admin/adminProductService";
 
 export interface ProductItem {
   id: string;
   sku: string;
   name: string;
-  description: string | null;
+  description: string;
   categoryId: string;
   categoryName: string;
   brandId: string | null;
   brandName: string | null;
   unit: string;
   basePrice: number;
-  imageUrl: string | null;
-  status?: string;
+  imageUrl: string;
+  status: string;
 }
 
-interface Props {
-  products: ProductItem[];
+interface ProductTableProps {
   categories: CategoryItem[];
   selectedL1Id: string;
+  searchTerm: string;
+  refreshKey: number;
   onEdit: (item: ProductItem) => void;
   onDelete: (item: ProductItem) => void;
-  onRestore: (item: ProductItem) => void; // 💥 Thêm prop khôi phục sản phẩm
-  onAddProductToCategory?: (categoryId: string, categoryName: string) => void;
+  onRestore: (item: ProductItem) => void;
+  onAddProductToCategory: (categoryId: string) => void;
 }
 
-interface CategoryGroupNode {
-  id: string;
-  name: string;
-  path: string;
-  products: ProductItem[];
+interface CategoryGroupItem {
+  targetCategory: CategoryItem;
+  displayName: string;
 }
 
-export default function ProductTable({
-  products,
-  categories,
-  selectedL1Id,
+/**
+ * Component hiển thị từng Accordion nhóm sản phẩm (Tối ưu Responsive)
+ */
+function CategoryGroupSection({
+  targetCategory,
+  displayName,
+  searchTerm,
+  refreshKey,
   onEdit,
   onDelete,
   onRestore,
   onAddProductToCategory,
-}: Props) {
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+}: {
+  targetCategory: CategoryItem;
+  displayName: string;
+  searchTerm: string;
+  refreshKey: number;
+  onEdit: (item: ProductItem) => void;
+  onDelete: (item: ProductItem) => void;
+  onRestore: (item: ProductItem) => void;
+  onAddProductToCategory: (categoryId: string) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [totalCount, setTotalCount] = useState<number>(0);
 
-  const currentL1 = categories.find((c) => c.id === selectedL1Id);
+  const fetchProductsByCategory = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await adminProductService.getProductsByCategoryId(
+        targetCategory.id,
+        { page: 0, size: 100 },
+      );
 
-  const getSubCategoryNodes = (
-    l1Category?: CategoryItem,
-  ): CategoryGroupNode[] => {
-    if (!l1Category || !l1Category.children) return [];
-
-    const nodes: CategoryGroupNode[] = [];
-
-    for (const l2 of l1Category.children) {
-      const l3List = l2.children || [];
-
-      if (l3List.length > 0) {
-        for (const l3 of l3List) {
-          nodes.push({
-            id: l3.id,
-            name: l3.name,
-            path: `${l2.name} / ${l3.name}`,
-            products: products.filter((p) => p.categoryId === l3.id),
-          });
-        }
+      if (res && res.data && Array.isArray(res.data.content)) {
+        setProducts(res.data.content as unknown as ProductItem[]);
+        setTotalCount(res.data.totalElements ?? res.data.content.length);
       } else {
-        nodes.push({
-          id: l2.id,
-          name: l2.name,
-          path: l2.name,
-          products: products.filter((p) => p.categoryId === l2.id),
-        });
+        setProducts([]);
+        setTotalCount(0);
       }
+    } catch (error) {
+      console.error(
+        `Lỗi tải sản phẩm cho danh mục ${targetCategory.name}:`,
+        error,
+      );
+      setProducts([]);
+      setTotalCount(0);
+    } finally {
+      setLoading(false);
     }
+  }, [targetCategory.id]);
 
-    return nodes;
-  };
+  useEffect(() => {
+    fetchProductsByCategory();
+  }, [fetchProductsByCategory, refreshKey]);
 
-  const categoryGroups = getSubCategoryNodes(currentL1);
+  useEffect(() => {
+    if (searchTerm.trim().length > 0) {
+      setIsExpanded(true);
+    }
+  }, [searchTerm]);
 
-  const toggleExpand = (groupId: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(groupId)) next.delete(groupId);
-      else next.add(groupId);
-      return next;
-    });
-  };
-
-  const isGroupExpanded = (groupId: string) => expandedGroups.has(groupId);
-
-  if (!currentL1) {
+  const filteredProducts = products.filter((p) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
     return (
-      <div className="py-12 text-center text-slate-400 text-xs font-medium bg-white rounded-lg border border-slate-200/80">
-        Vui lòng chọn danh mục để xem sản phẩm.
-      </div>
+      p.name.toLowerCase().includes(term) || p.sku.toLowerCase().includes(term)
     );
-  }
-
-  if (categoryGroups.length === 0) {
-    return (
-      <div className="py-12 text-center text-slate-400 text-xs font-medium bg-white rounded-lg border border-slate-200/80">
-        Danh mục {currentL1.name} chưa có danh mục con nào.
-      </div>
-    );
-  }
+  });
 
   return (
-    <div className="space-y-3">
-      {categoryGroups.map((group) => {
-        const isOpen = isGroupExpanded(group.id);
-        const hasProducts = group.products.length > 0;
-        const pathSegments = group.path.split(" / ");
-
-        return (
-          <div
-            key={group.id}
-            className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden transition"
+    <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
+      {/* Accordion Header - Responsive */}
+      <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 p-3 sm:p-3.5 bg-white hover:bg-slate-50/50 transition border-b border-slate-100">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={() => setIsExpanded((prev) => !prev)}
+            className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer shrink-0"
           >
-            {/* Header nhóm Danh mục con */}
-            <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-50/90 border-b border-slate-200/70 select-none">
-              <div
-                className="flex items-center gap-2.5 cursor-pointer min-w-0"
-                onClick={() => toggleExpand(group.id)}
+            {isExpanded ? (
+              <ChevronDownIcon className="w-4 h-4 stroke-2" />
+            ) : (
+              <ChevronRightIcon className="w-4 h-4 stroke-2" />
+            )}
+          </button>
+
+          <div className="flex items-center gap-2 min-w-0 truncate">
+            <span
+              className="text-xs font-bold text-slate-800 truncate"
+              title={displayName}
+            >
+              {displayName}
+            </span>
+
+            {loading ? (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400 animate-pulse shrink-0">
+                ...
+              </span>
+            ) : (
+              <span
+                className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${
+                  totalCount > 0
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                    : "bg-rose-50 text-rose-600 border border-rose-200/60"
+                }`}
               >
-                <button
-                  type="button"
-                  className="text-slate-500 p-1 rounded-lg hover:bg-slate-200 transition"
-                >
-                  {isOpen ? (
-                    <ChevronDownIcon className="w-4 h-4" />
-                  ) : (
-                    <ChevronRightIcon className="w-4 h-4" />
-                  )}
-                </button>
-
-                <div className="p-1.5 bg-emerald-50 text-[#0d5c3a] rounded-md shrink-0">
-                  <TagIcon className="w-4 h-4" />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                  {pathSegments.map((segment, index) => {
-                    const isLast = index === pathSegments.length - 1;
-                    return (
-                      <React.Fragment key={index}>
-                        {index > 0 && (
-                          <span className="text-slate-300 font-bold">/</span>
-                        )}
-                        <span
-                          className={`${
-                            isLast
-                              ? "font-extrabold text-slate-900 uppercase"
-                              : "font-semibold text-slate-500"
-                          }`}
-                        >
-                          {segment}
-                        </span>
-                      </React.Fragment>
-                    );
-                  })}
-
-                  <span
-                    className={`ml-1.5 px-2 py-0.5 text-[10px] font-bold rounded-full ${
-                      hasProducts
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-rose-100 text-rose-700"
-                    }`}
-                  >
-                    {group.products.length} sản phẩm
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  onAddProductToCategory &&
-                  onAddProductToCategory(group.id, group.name)
-                }
-                className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0d5c3a] bg-white border border-emerald-200 hover:bg-emerald-50 rounded-md transition cursor-pointer shrink-0"
-              >
-                <PlusIcon className="w-3.5 h-3.5 stroke-3" />
-                <span className="hidden sm:inline">Thêm vào nhóm này</span>
-              </button>
-            </div>
-
-            {/* Nội dung danh sách sản phẩm */}
-            {isOpen && (
-              <div>
-                {!hasProducts ? (
-                  <div className="py-6 text-center text-slate-400 text-xs font-medium flex items-center justify-center gap-1.5">
-                    <ExclamationCircleIcon className="w-4 h-4 text-amber-500" />
-                    Danh mục này chưa có sản phẩm nào.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-100 text-slate-400 font-semibold text-[11px] bg-slate-50/40">
-                          <th className="py-2.5 px-3.5">Sản phẩm</th>
-                          <th className="py-2.5 px-3.5">Mã SKU</th>
-                          <th className="py-2.5 px-3.5">Thương hiệu</th>
-                          <th className="py-2.5 px-3.5">Đơn vị</th>
-                          <th className="py-2.5 px-3.5">Giá bán gốc</th>
-                          {/* 💥 Thêm tiêu đề cột Trạng thái */}
-                          <th className="py-2.5 px-3.5">Trạng thái</th>
-                          <th className="py-2.5 px-3.5 text-right">Thao tác</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-medium">
-                        {group.products.map((item) => {
-                          const isActive =
-                            !item.status || item.status === "ACTIVE";
-
-                          return (
-                            <tr
-                              key={item.id}
-                              className="hover:bg-slate-50/80 transition"
-                            >
-                              <td className="py-3 px-3.5 flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                                  {item.imageUrl ? (
-                                    <img
-                                      src={item.imageUrl}
-                                      alt={item.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <PhotoIcon className="w-4 h-4 text-slate-400" />
-                                  )}
-                                </div>
-                                <div>
-                                  <div className="font-bold text-slate-900">
-                                    {item.name}
-                                  </div>
-                                  {item.description && (
-                                    <div className="text-[11px] text-slate-400 truncate max-w-xs">
-                                      {item.description}
-                                    </div>
-                                  )}
-                                </div>
-                              </td>
-
-                              <td className="py-3 px-3.5 font-bold text-slate-600">
-                                {item.sku}
-                              </td>
-
-                              <td className="py-3 px-3.5 text-slate-600">
-                                {item.brandName || "—"}
-                              </td>
-
-                              <td className="py-3 px-3.5 text-slate-600">
-                                <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-700 font-semibold">
-                                  {item.unit}
-                                </span>
-                              </td>
-
-                              <td className="py-3 px-3.5 font-extrabold text-slate-900">
-                                {item.basePrice.toLocaleString("vi-VN")} đ
-                              </td>
-
-                              {/* 💥 Cột Trạng thái */}
-                              <td className="py-3 px-3.5">
-                                <span
-                                  className={`px-2.5 py-0.5 text-[11px] font-bold rounded-full ${
-                                    isActive
-                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                      : "bg-rose-50 text-rose-700 border border-rose-200"
-                                  }`}
-                                >
-                                  {isActive ? "Đang bán" : "Đã ngừng bán"}
-                                </span>
-                              </td>
-
-                              {/* Cột Thao tác */}
-                              <td className="py-3 px-3.5 text-right">
-                                <div className="flex items-center justify-end gap-1">
-                                  {/* Nếu đang bán thì hiện nút Sửa & Xóa, nếu đã ngừng bán thì hiện nút Khôi phục */}
-                                  {isActive ? (
-                                    <>
-                                      <button
-                                        onClick={() => onEdit(item)}
-                                        className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
-                                        title="Chỉnh sửa"
-                                      >
-                                        <PencilSquareIcon className="w-4 h-4" />
-                                      </button>
-                                      <button
-                                        onClick={() => onDelete(item)}
-                                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
-                                        title="Xóa / Ngừng bán"
-                                      >
-                                        <TrashIcon className="w-4 h-4" />
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <button
-                                      onClick={() => onRestore(item)}
-                                      className="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
-                                      title="Khôi phục sản phẩm"
-                                    >
-                                      <ArrowPathIcon className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+                {totalCount} sản phẩm
+              </span>
             )}
           </div>
-        );
-      })}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onAddProductToCategory(targetCategory.id)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] sm:text-xs font-bold text-[#0d5c3a] bg-emerald-50 hover:bg-emerald-100/80 rounded-lg transition cursor-pointer shrink-0 ml-auto sm:ml-0"
+        >
+          <PlusIcon className="w-3.5 h-3.5 stroke-3" />
+          <span className="hidden xs:inline">Thêm vào nhóm này</span>
+          <span className="xs:hidden">Thêm</span>
+        </button>
+      </div>
+
+      {/* Nội dung danh sách sản phẩm khi MỞ - Responsive Table */}
+      {isExpanded && (
+        <div className="p-2 sm:p-3.5">
+          {loading ? (
+            <div className="py-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+              <ArrowPathIcon className="w-4 h-4 animate-spin text-[#0d5c3a]" />
+              Đang tải danh sách sản phẩm...
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-400 font-medium">
+              Danh mục này chưa có sản phẩm nào.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[500px] sm:min-w-[650px]">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400">
+                    <th className="py-2.5 px-2 sm:px-3">Sản phẩm</th>
+                    <th className="py-2.5 px-2 sm:px-3 hidden sm:table-cell">
+                      Mã SKU
+                    </th>
+                    <th className="py-2.5 px-2 sm:px-3 text-center sm:text-left">
+                      Đơn vị
+                    </th>
+                    <th className="py-2.5 px-2 sm:px-3">Giá bán</th>
+                    <th className="py-2.5 px-2 sm:px-3 hidden md:table-cell">
+                      Trạng thái
+                    </th>
+                    <th className="py-2.5 px-2 sm:px-3 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {filteredProducts.map((p) => {
+                    const isInactive = p.status === "INACTIVE";
+                    return (
+                      <tr
+                        key={p.id}
+                        className="hover:bg-slate-50/80 transition group"
+                      >
+                        {/* Cột Sản phẩm (Hình ảnh + Tên gọn gàng + Mô tả ẩn/hiện) */}
+                        <td className="py-2.5 px-2 sm:px-3">
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={p.imageUrl || "/images/placeholder.png"}
+                              alt={p.name}
+                              className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-lg border border-slate-200/80 bg-slate-50 p-0.5 shrink-0"
+                            />
+                            <div className="min-w-0 max-w-[180px] xs:max-w-[220px] sm:max-w-[280px] md:max-w-[320px]">
+                              <h4
+                                className="font-bold text-slate-900 truncate text-xs sm:text-xs"
+                                title={p.name}
+                              >
+                                {p.name}
+                              </h4>
+                              {p.description && (
+                                <p
+                                  className="text-[10px] sm:text-[11px] text-slate-400 truncate mt-0.5 hidden xs:block"
+                                  title={p.description}
+                                >
+                                  {p.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Mã SKU (Ẩn ở mobile hẹp) */}
+                        <td className="py-2.5 px-2 sm:px-3 font-mono font-semibold text-slate-600 hidden sm:table-cell">
+                          {p.sku || "—"}
+                        </td>
+
+                        {/* Đơn vị tính */}
+                        <td className="py-2.5 px-2 sm:px-3 text-center sm:text-left">
+                          <span className="px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold bg-slate-100 text-slate-600 rounded whitespace-nowrap">
+                            {p.unit || "Cái"}
+                          </span>
+                        </td>
+
+                        {/* Giá bán gốc */}
+                        <td className="py-2.5 px-2 sm:px-3 font-extrabold text-[#0d5c3a] whitespace-nowrap">
+                          {p.basePrice?.toLocaleString("vi-VN")} đ
+                        </td>
+
+                        {/* Trạng thái (Ẩn ở màn hình trung bình) */}
+                        <td className="py-2.5 px-2 sm:px-3 hidden md:table-cell">
+                          <span
+                            className={`px-2 py-0.5 text-[10px] font-bold rounded-full inline-block whitespace-nowrap ${
+                              isInactive
+                                ? "bg-rose-50 text-rose-600"
+                                : "bg-emerald-50 text-emerald-600"
+                            }`}
+                          >
+                            {isInactive ? "Đã dừng" : "Đang bán"}
+                          </span>
+                        </td>
+
+                        {/* Thao tác */}
+                        <td className="py-2.5 px-2 sm:px-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {isInactive ? (
+                              <button
+                                onClick={() => onRestore(p)}
+                                className="p-1.5 text-slate-400 hover:text-emerald-600 transition rounded-lg hover:bg-slate-100 cursor-pointer"
+                                title="Khôi phục"
+                              >
+                                <ArrowPathIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => onEdit(p)}
+                                  className="p-1.5 text-slate-400 hover:text-blue-600 transition rounded-lg hover:bg-slate-100 cursor-pointer"
+                                  title="Chỉnh sửa"
+                                >
+                                  <PencilSquareIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                </button>
+                                <button
+                                  onClick={() => onDelete(p)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 transition rounded-lg hover:bg-slate-100 cursor-pointer"
+                                  title="Xóa"
+                                >
+                                  <TrashIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ProductTable({
+  categories,
+  selectedL1Id,
+  searchTerm,
+  refreshKey,
+  onEdit,
+  onDelete,
+  onRestore,
+  onAddProductToCategory,
+}: ProductTableProps) {
+  const selectedL1 = categories.find((c) => c.id === selectedL1Id);
+
+  if (!selectedL1 || !selectedL1.children || selectedL1.children.length === 0) {
+    return (
+      <div className="py-12 text-center text-slate-400 text-xs font-medium bg-white rounded-xl border border-slate-200/80">
+        Không có danh mục con nào trong nhóm này.
+      </div>
+    );
+  }
+
+  const targetGroups: CategoryGroupItem[] = [];
+
+  selectedL1.children.forEach((l2) => {
+    if (l2.children && l2.children.length > 0) {
+      l2.children.forEach((l3) => {
+        targetGroups.push({
+          targetCategory: l3,
+          displayName: `${l2.name} / ${l3.name}`,
+        });
+      });
+    } else {
+      targetGroups.push({
+        targetCategory: l2,
+        displayName: l2.name,
+      });
+    }
+  });
+
+  return (
+    <div className="space-y-3.5">
+      {targetGroups.map(({ targetCategory, displayName }) => (
+        <CategoryGroupSection
+          key={targetCategory.id}
+          targetCategory={targetCategory}
+          displayName={displayName}
+          searchTerm={searchTerm}
+          refreshKey={refreshKey}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onRestore={onRestore}
+          onAddProductToCategory={onAddProductToCategory}
+        />
+      ))}
     </div>
   );
 }

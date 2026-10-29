@@ -47,7 +47,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const fetchCart = useCallback(async () => {
-    if (!branchId) {
+    if (typeof window === "undefined") return;
+
+    const token =
+      localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+    if (!branchId || !token) {
       setCartItems([]);
       setTotalQuantity(0);
       setTotalAmount(0);
@@ -77,7 +82,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true;
 
     const loadCartData = async () => {
-      if (!branchId) {
+      if (typeof window === "undefined") return;
+
+      const token =
+        localStorage.getItem("accessToken") || localStorage.getItem("token");
+
+      if (!branchId || !token) {
         if (isMounted) {
           setCartItems([]);
           setTotalQuantity(0);
@@ -116,6 +126,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addToCart = async (productId: string, quantity: number = 1) => {
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("accessToken") || localStorage.getItem("token")
+        : null;
+
+    if (!token) {
+      showToast.error("Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng!");
+      return;
+    }
+
     if (!branchId) {
       showToast.error("Vui lòng chọn chi nhánh gần bạn!");
       return;
