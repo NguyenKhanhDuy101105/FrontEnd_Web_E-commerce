@@ -72,6 +72,50 @@ export default function ProductCardGrid({
     return true;
   };
 
+  const getValidImageUrl = (url?: string | null): string => {
+    if (!url || typeof url !== "string" || !url.trim()) {
+      return "/images/Banner1.jpeg";
+    }
+
+    let trimmed = url.trim();
+
+    const httpsIndex = trimmed.indexOf("https://");
+    const httpIndex = trimmed.indexOf("http://");
+
+    if (httpsIndex !== -1) {
+      trimmed = trimmed.substring(httpsIndex);
+    } else if (httpIndex !== -1) {
+      trimmed = trimmed.substring(httpIndex);
+    }
+
+    if (trimmed.startsWith("/")) {
+      return trimmed;
+    }
+
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      try {
+        const parsedUrl = new URL(trimmed);
+
+        const allowedHostnames = [
+          "encrypted-tbn0.gstatic.com",
+          "res.cloudinary.com",
+          "images.unsplash.com",
+          "lotte.vn",
+        ];
+
+        if (allowedHostnames.includes(parsedUrl.hostname)) {
+          return trimmed;
+        }
+
+        return "/images/Banner1.jpeg";
+      } catch {
+        return "/images/Banner1.jpeg";
+      }
+    }
+
+    return `/${trimmed}`;
+  };
+
   const isOutOfStock =
     inStock !== undefined
       ? !inStock
@@ -186,8 +230,8 @@ export default function ProductCardGrid({
           className="relative block w-full aspect-square bg-white mb-3 overflow-hidden rounded-sm cursor-pointer"
         >
           <Image
-            src={image || "/images/Banner1.jpeg"}
-            alt={title}
+            src={getValidImageUrl(image)}
+            alt={title || "Product image"}
             fill
             className={`object-contain transition-transform duration-300 ${
               isOutOfStock ? "opacity-70" : "group-hover:scale-105"

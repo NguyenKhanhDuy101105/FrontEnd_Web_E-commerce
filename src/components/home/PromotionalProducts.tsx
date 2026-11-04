@@ -23,7 +23,7 @@ export default function PromotionalProducts() {
         const res = await productService.getPromotionProducts({
           branchId,
           page: 0,
-          size: 10,
+          size: 100,
         });
 
         if (res.status === "success" && res.data?.content) {

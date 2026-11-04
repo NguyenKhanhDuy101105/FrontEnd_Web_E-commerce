@@ -43,7 +43,7 @@ export default function AdminCategoryPage() {
       const res = await categoriesService.getCategories();
       if (res && res.data && Array.isArray(res.data)) {
         setCategories(res.data);
-        setExpandedIds(new Set(res.data.map((c) => c.id)));
+        setExpandedIds(new Set());
       } else {
         setCategories([]);
       }

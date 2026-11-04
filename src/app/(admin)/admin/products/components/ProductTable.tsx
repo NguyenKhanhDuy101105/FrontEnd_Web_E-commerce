@@ -43,9 +43,6 @@ interface CategoryGroupItem {
   displayName: string;
 }
 
-/**
- * Component hiển thị từng Accordion nhóm sản phẩm (Tối ưu Responsive)
- */
 function CategoryGroupSection({
   targetCategory,
   displayName,
@@ -117,7 +114,6 @@ function CategoryGroupSection({
 
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
-      {/* Accordion Header - Responsive */}
       <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 p-3 sm:p-3.5 bg-white hover:bg-slate-50/50 transition border-b border-slate-100">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <button
@@ -169,7 +165,6 @@ function CategoryGroupSection({
         </button>
       </div>
 
-      {/* Nội dung danh sách sản phẩm khi MỞ - Responsive Table */}
       {isExpanded && (
         <div className="p-2 sm:p-3.5">
           {loading ? (
@@ -182,9 +177,9 @@ function CategoryGroupSection({
               Danh mục này chưa có sản phẩm nào.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[500px] sm:min-w-[650px]">
-                <thead>
+            <div className="overflow-x-auto max-h-85 overflow-y-auto custom-scrollbar">
+              <table className="w-full text-left border-collapse min-w-125 sm:min-w-162.5">
+                <thead className="sticky top-0 bg-white z-10 shadow-xs">
                   <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400">
                     <th className="py-2.5 px-2 sm:px-3">Sản phẩm</th>
                     <th className="py-2.5 px-2 sm:px-3 hidden sm:table-cell">
@@ -208,7 +203,6 @@ function CategoryGroupSection({
                         key={p.id}
                         className="hover:bg-slate-50/80 transition group"
                       >
-                        {/* Cột Sản phẩm (Hình ảnh + Tên gọn gàng + Mô tả ẩn/hiện) */}
                         <td className="py-2.5 px-2 sm:px-3">
                           <div className="flex items-center gap-2.5">
                             <img
@@ -216,7 +210,7 @@ function CategoryGroupSection({
                               alt={p.name}
                               className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-lg border border-slate-200/80 bg-slate-50 p-0.5 shrink-0"
                             />
-                            <div className="min-w-0 max-w-[180px] xs:max-w-[220px] sm:max-w-[280px] md:max-w-[320px]">
+                            <div className="min-w-0 max-w-45 xs:max-w-[220px] sm:max-w-70 md:max-w-[320px]">
                               <h4
                                 className="font-bold text-slate-900 truncate text-xs sm:text-xs"
                                 title={p.name}
@@ -235,24 +229,20 @@ function CategoryGroupSection({
                           </div>
                         </td>
 
-                        {/* Mã SKU (Ẩn ở mobile hẹp) */}
                         <td className="py-2.5 px-2 sm:px-3 font-mono font-semibold text-slate-600 hidden sm:table-cell">
                           {p.sku || "—"}
                         </td>
 
-                        {/* Đơn vị tính */}
                         <td className="py-2.5 px-2 sm:px-3 text-center sm:text-left">
                           <span className="px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold bg-slate-100 text-slate-600 rounded whitespace-nowrap">
                             {p.unit || "Cái"}
                           </span>
                         </td>
 
-                        {/* Giá bán gốc */}
                         <td className="py-2.5 px-2 sm:px-3 font-extrabold text-[#0d5c3a] whitespace-nowrap">
                           {p.basePrice?.toLocaleString("vi-VN")} đ
                         </td>
 
-                        {/* Trạng thái (Ẩn ở màn hình trung bình) */}
                         <td className="py-2.5 px-2 sm:px-3 hidden md:table-cell">
                           <span
                             className={`px-2 py-0.5 text-[10px] font-bold rounded-full inline-block whitespace-nowrap ${
@@ -265,7 +255,6 @@ function CategoryGroupSection({
                           </span>
                         </td>
 
-                        {/* Thao tác */}
                         <td className="py-2.5 px-2 sm:px-3 text-right">
                           <div className="flex items-center justify-end gap-1">
                             {isInactive ? (

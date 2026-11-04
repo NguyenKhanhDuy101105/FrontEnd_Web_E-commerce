@@ -23,7 +23,7 @@ export default function DailyFreshProducts() {
         const res = await productService.getDailyFreshProducts({
           branchId,
           page: 0,
-          size: 10,
+          size: 100,
         });
 
         if (res.status === "success" && res.data?.content) {

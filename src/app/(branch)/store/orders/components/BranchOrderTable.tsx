@@ -207,21 +207,22 @@ export default function BranchOrderTable({
           </button>
         )}
 
-        {order.status === "READY_FOR_PICKUP" && (
-          <button
-            disabled={isLoadingThis}
-            onClick={() =>
-              handleExecute(
-                order.id,
-                () => branchOrderService.handoverOrder(branchId, order.id),
-                "Đã bàn giao cho Shipper!",
-              )
-            }
-            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition cursor-pointer disabled:opacity-50 whitespace-nowrap"
-          >
-            Bàn giao Shipper
-          </button>
-        )}
+        {order.status === "READY_FOR_PICKUP" &&
+          order.deliveryType === "DELIVERY" && (
+            <button
+              disabled={isLoadingThis}
+              onClick={() =>
+                handleExecute(
+                  order.id,
+                  () => branchOrderService.handoverOrder(branchId, order.id),
+                  "Đã bàn giao cho Shipper!",
+                )
+              }
+              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition cursor-pointer disabled:opacity-50 whitespace-nowrap"
+            >
+              Bàn giao Shipper
+            </button>
+          )}
 
         {order.status === "DELIVERY_FAILED" && (
           <button
@@ -397,7 +398,7 @@ export default function BranchOrderTable({
                         </span>
                       ) : (
                         <span className="px-2.5 py-1 text-[11px] font-bold bg-amber-50 text-amber-700 rounded-full">
-                          Click & Collect
+                          Nhận tại cửa hàng
                         </span>
                       )}
                     </td>

@@ -142,7 +142,7 @@ export const productService = {
     const queryParams = {
       includeDescendants: true,
       page: 0,
-      size: 20,
+      size: 100,
       sort: "discount_desc",
       ...params,
     };
@@ -164,7 +164,7 @@ export const productService = {
     const queryParams = {
       includeDescendants: true,
       page: 0,
-      size: 20,
+      size: 100,
       sort: "name_asc",
       ...params,
     };

@@ -114,12 +114,12 @@ export default function AdminVouchersPage() {
         description: voucher.description,
         discountType: voucher.discountType,
         discountValue: voucher.discountValue,
-        maxDiscountAmount: voucher.maxDiscountAmount,
-        minOrderAmount: voucher.minOrderAmount,
+        maxDiscountAmount: voucher.maxDiscountAmount ?? undefined,
+        minOrderAmount: voucher.minOrderAmount ?? undefined,
         startDate: voucher.startDate,
         endDate: voucher.endDate,
-        usageLimit: voucher.usageLimit,
-        userLimit: voucher.userLimit,
+        usageLimit: voucher.usageLimit ?? undefined,
+        userLimit: voucher.userLimit ?? undefined,
         conditions: voucher.conditions,
         isActive: !voucher.isActive,
       });
@@ -150,7 +150,7 @@ export default function AdminVouchersPage() {
 
         <button
           onClick={handleCreateNew}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-lg shadow-xs transition-colors cursor-pointer"
         >
           <PlusIcon className="w-4 h-4 stroke-[2.5]" />
           <span>Thêm Voucher mới</span>

@@ -72,7 +72,8 @@ export default function OrderDetailModal({
 
   const canConfirmReceived =
     detail?.status === "SHIPPING" ||
-    detail?.status === "DELIVERED_PENDING_CONFIRMATION";
+    detail?.status === "DELIVERED_PENDING_CONFIRMATION" ||
+    detail?.status === "READY_FOR_PICKUP";
 
   return (
     <div className="fixed inset-0 z-101 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
@@ -122,7 +123,9 @@ export default function OrderDetailModal({
                 </div>
                 <div className="flex items-start gap-2 text-slate-600">
                   <MapPinIcon className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                  <span>{detail.shippingAddress}</span>
+                  <span>
+                    {detail.shippingAddress || "Nhận trực tiếp tại cửa hàng"}
+                  </span>
                 </div>
                 {detail.receiveFrom && detail.receiveTo && (
                   <div className="flex items-center gap-2 text-slate-600">
@@ -233,7 +236,11 @@ export default function OrderDetailModal({
                 disabled={confirming}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer"
               >
-                {confirming ? "Đang xử lý..." : "Đã nhận được hàng"}
+                {confirming
+                  ? "Đang xử lý..."
+                  : detail.status === "READY_FOR_PICKUP"
+                    ? "Xác nhận đã lấy hàng"
+                    : "Đã nhận được hàng"}
               </button>
             )}
           </div>

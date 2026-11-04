@@ -151,8 +151,7 @@ export default function ProductDiscountTable({
                   </div>
                 ) : (
                   <>
-                    {/* Giao diện dạng Card cho Mobile & Tablet (< lg) */}
-                    <div className="block lg:hidden divide-y divide-slate-100 bg-slate-50/50">
+                    <div className="block lg:hidden divide-y divide-slate-100 bg-slate-50/50 max-h-60 overflow-y-auto">
                       {groupProducts.map((prod: any) => {
                         const activeDiscount = discountMap.get(prod.id);
 
@@ -172,7 +171,7 @@ export default function ProductDiscountTable({
                         return (
                           <div
                             key={prod.id}
-                            className="p-3.5 space-y-2.5 bg-white text-xs"
+                            className="p-3.5 space-y-2 bg-white text-xs"
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="space-y-0.5">
@@ -217,7 +216,7 @@ export default function ProductDiscountTable({
                               </div>
                             </div>
 
-                            <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 text-xs">
+                            <div className="flex items-center justify-between gap-2 text-xs pt-1">
                               <div>
                                 <span className="text-[10px] text-slate-400 block">
                                   GIÁ BÁN GỐC
@@ -267,30 +266,29 @@ export default function ProductDiscountTable({
                       })}
                     </div>
 
-                    {/* Giao diện dạng Bảng cho Desktop (>= lg) */}
-                    <div className="hidden lg:block overflow-x-auto">
-                      <table className="w-full text-left text-xs text-slate-600">
-                        <thead className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 border-b border-slate-200">
+                    <div className="hidden lg:block overflow-x-auto max-h-77.5 overflow-y-auto">
+                      <table className="w-full text-left text-xs text-slate-600 border-collapse">
+                        <thead className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 border-b border-slate-200 sticky top-0 z-10 shadow-xs">
                           <tr>
-                            <th className="py-2.5 px-3 whitespace-nowrap">
+                            <th className="py-2.5 px-3 whitespace-nowrap bg-slate-50">
                               Sản phẩm
                             </th>
-                            <th className="py-2.5 px-3 whitespace-nowrap">
+                            <th className="py-2.5 px-3 whitespace-nowrap bg-slate-50">
                               Mã SKU
                             </th>
-                            <th className="py-2.5 px-3 whitespace-nowrap">
+                            <th className="py-2.5 px-3 whitespace-nowrap bg-slate-50">
                               Đơn vị
                             </th>
-                            <th className="py-2.5 px-3 whitespace-nowrap">
+                            <th className="py-2.5 px-3 whitespace-nowrap bg-slate-50">
                               Giá bán gốc
                             </th>
-                            <th className="py-2.5 px-3 text-center whitespace-nowrap">
+                            <th className="py-2.5 px-3 text-center whitespace-nowrap bg-slate-50">
                               Mức giảm giá
                             </th>
-                            <th className="py-2.5 px-3 text-right whitespace-nowrap">
+                            <th className="py-2.5 px-3 text-right whitespace-nowrap bg-slate-50">
                               Giá sau giảm
                             </th>
-                            <th className="py-2.5 px-3 text-center whitespace-nowrap">
+                            <th className="py-2.5 px-3 text-center whitespace-nowrap bg-slate-50">
                               Thao tác
                             </th>
                           </tr>

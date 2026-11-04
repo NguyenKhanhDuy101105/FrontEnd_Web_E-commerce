@@ -35,14 +35,14 @@ const CATEGORY_DATA: CategoryBlock[] = [
         name: "Rau củ",
         imageUrl:
           "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=300",
-        link: "/products?category=rau-cu",
+        link: "/products?categoryId=bea0212c-c97f-46c1-b443-d65946d8fbae",
       },
       {
         id: "trai-cay",
         name: "Trái cây",
         imageUrl:
           "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=300",
-        link: "/products?category=trai-cay",
+        link: "/products?categoryId=5eaaf2fb-9f27-4a63-8937-b03978a24f06",
       },
       {
         id: "thit",

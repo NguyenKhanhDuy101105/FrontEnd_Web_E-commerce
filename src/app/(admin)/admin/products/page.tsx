@@ -29,7 +29,6 @@ export default function AdminProductPage() {
     null,
   );
 
-  // Dùng refreshKey để trigger reload lại sản phẩm trong ProductTable khi thêm/sửa/xóa thành công
   const [refreshKey, setRefreshKey] = useState<number>(0);
 
   const fetchCategories = useCallback(async () => {
@@ -135,7 +134,6 @@ export default function AdminProductPage() {
         </div>
       )}
 
-      {/* ProductTable đảm nhận việc tự fetch lười theo từng Category ID */}
       <ProductTable
         categories={categories}
         selectedL1Id={selectedL1Id}

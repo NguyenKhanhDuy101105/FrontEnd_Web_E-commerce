@@ -1,15 +1,19 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   XMarkIcon,
   PhotoIcon,
   ArrowUpTrayIcon,
   LinkIcon,
+  ChevronDownIcon,
+  MagnifyingGlassIcon,
+  CheckIcon,
 } from "@heroicons/react/24/outline";
 import { CategoryItem } from "@/src/services/customer/categoriesService";
 import { ProductItem } from "./ProductTable";
 import { adminProductService } from "@/src/services/admin/adminProductService";
+import { brandService, BrandItem } from "@/src/services/admin/brandService";
 import { showToast } from "@/src/utils/toast";
 import CategoryCascader from "./CategoryCascader";
 
@@ -34,9 +38,16 @@ export default function ProductModal({
   const [formDescription, setFormDescription] = useState<string>("");
   const [formUnit, setFormUnit] = useState<string>("Kg");
 
-  // 💥 Fix lỗi 1: Để kiểu string hoặc number | "" để không bị dính số 0 ở đầu
   const [formBasePrice, setFormBasePrice] = useState<number | "">("");
   const [formBrandId, setFormBrandId] = useState<string>("");
+
+  const [brands, setBrands] = useState<BrandItem[]>([]);
+  const [loadingBrands, setLoadingBrands] = useState<boolean>(false);
+
+  const [isBrandDropdownOpen, setIsBrandDropdownOpen] =
+    useState<boolean>(false);
+  const [brandSearchTerm, setBrandSearchTerm] = useState<string>("");
+  const brandDropdownRef = useRef<HTMLDivElement>(null);
 
   const [imageMode, setImageMode] = useState<"file" | "url">("file");
   const [formImageUrl, setFormImageUrl] = useState<string>("");
@@ -71,7 +82,41 @@ export default function ProductModal({
   };
 
   useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        brandDropdownRef.current &&
+        !brandDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsBrandDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const fetchBrands = async () => {
+      try {
+        setLoadingBrands(true);
+        const res = await brandService.getBrands();
+        if (res?.data) {
+          const list = Array.isArray(res.data)
+            ? res.data
+            : (res.data as any).content || [];
+          setBrands(list);
+        }
+      } catch (error) {
+        console.error("Lỗi khi tải thương hiệu:", error);
+      } finally {
+        setLoadingBrands(false);
+      }
+    };
+
     if (isOpen) {
+      fetchBrands();
+      setIsBrandDropdownOpen(false);
+      setBrandSearchTerm("");
+
       if (editingProduct) {
         setFormName(editingProduct.name || "");
         setFormDescription(editingProduct.description || "");
@@ -94,7 +139,7 @@ export default function ProductModal({
         setFormName("");
         setFormDescription("");
         setFormUnit("Kg");
-        setFormBasePrice(""); // Reset rỗng
+        setFormBasePrice("");
         setFormImageUrl("");
         setSelectedFile(null);
         setImagePreview("");
@@ -143,6 +188,12 @@ export default function ProductModal({
     return "";
   };
 
+  const filteredBrands = brands.filter((b) =>
+    b.name.toLowerCase().includes(brandSearchTerm.toLowerCase()),
+  );
+
+  const selectedBrand = brands.find((b) => b.id === formBrandId);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const finalCategoryId = getSelectedCategoryId();
@@ -164,14 +215,10 @@ export default function ProductModal({
 
     setIsSubmitting(true);
     try {
-      // 💥 Fix lỗi 2: Xử lý chuỗi imageUrl chuẩn API Backend
       let finalImageUrl: string | null = null;
-
       if (imageMode === "url") {
         finalImageUrl = formImageUrl.trim() || null;
       } else {
-        // Nếu chọn file từ máy tính, tránh gửi chuỗi blob:...
-        // Bạn có thể thay URL bên dưới bằng đường dẫn CDN/Placeholder hợp lệ nếu chưa có API Upload
         finalImageUrl = selectedFile
           ? "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=500"
           : null;
@@ -252,12 +299,98 @@ export default function ProductModal({
             onSelectL3={(id) => setSelectedL3Id(id)}
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="relative" ref={brandDropdownRef}>
+              <label className="block font-bold text-slate-700 mb-1">
+                Thương hiệu
+              </label>
+
+              <button
+                type="button"
+                onClick={() => setIsBrandDropdownOpen(!isBrandDropdownOpen)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-800 flex items-center justify-between cursor-pointer hover:bg-slate-100/80 transition"
+              >
+                <span
+                  className={`truncate ${selectedBrand ? "text-slate-900 font-bold" : "text-slate-400"}`}
+                >
+                  {selectedBrand
+                    ? selectedBrand.name
+                    : "-- Chọn thương hiệu --"}
+                </span>
+                <ChevronDownIcon className="w-4 h-4 text-slate-400 shrink-0 ml-1" />
+              </button>
+
+              {isBrandDropdownOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-2 space-y-2">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Tìm thương hiệu..."
+                      value={brandSearchTerm}
+                      onChange={(e) => setBrandSearchTerm(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                      autoFocus
+                    />
+                    <MagnifyingGlassIcon className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormBrandId("");
+                        setIsBrandDropdownOpen(false);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 text-slate-500 hover:bg-slate-50 rounded-md font-medium text-xs flex items-center justify-between cursor-pointer"
+                    >
+                      <span>-- Chọn thương hiệu --</span>
+                      {!formBrandId && (
+                        <CheckIcon className="w-3.5 h-3.5 text-emerald-600" />
+                      )}
+                    </button>
+
+                    {loadingBrands ? (
+                      <div className="p-3 text-center text-slate-400">
+                        Đang tải...
+                      </div>
+                    ) : filteredBrands.length === 0 ? (
+                      <div className="p-3 text-center text-slate-400">
+                        Không tìm thấy thương hiệu
+                      </div>
+                    ) : (
+                      filteredBrands.map((b) => {
+                        const isSelected = formBrandId === b.id;
+                        return (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => {
+                              setFormBrandId(b.id);
+                              setIsBrandDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-2.5 py-1.5 hover:bg-emerald-50 rounded-md font-medium text-xs flex items-center justify-between cursor-pointer transition ${
+                              isSelected
+                                ? "text-emerald-700 bg-emerald-50/60 font-bold"
+                                : "text-slate-700"
+                            }`}
+                          >
+                            <span className="truncate">{b.name}</span>
+                            {isSelected && (
+                              <CheckIcon className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="block font-bold text-slate-700 mb-1">
                 Giá gốc (VNĐ) *
               </label>
-              {/* 💥 Input Giá gốc: Không dính số 0, min=0 chặn số âm */}
               <input
                 type="number"
                 min={0}
@@ -275,6 +408,7 @@ export default function ProductModal({
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none font-bold text-slate-900"
               />
             </div>
+
             <div>
               <label className="block font-bold text-slate-700 mb-1">
                 Đơn vị tính *

@@ -33,6 +33,7 @@ export default function ProductInfo({
 
   const wishlist = isWishlisted(product.id);
   const stockQuantity = product.stockQuantity ?? 0;
+  const isOutOfStock = product.isOutOfStock || stockQuantity <= 0;
 
   const handleWishlistClick = async () => {
     if (isWishlistLoading) return;
@@ -146,18 +147,20 @@ export default function ProductInfo({
           <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white">
             <button
               type="button"
+              disabled={isOutOfStock || quantity <= 1}
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 font-bold"
+              className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 font-bold disabled:opacity-40 disabled:cursor-not-allowed"
             >
               -
             </button>
             <span className="px-4 py-1.5 font-bold text-slate-800">
-              {quantity}
+              {isOutOfStock ? 0 : quantity}
             </span>
             <button
               type="button"
+              disabled={isOutOfStock || quantity >= stockQuantity}
               onClick={() => setQuantity(quantity + 1)}
-              className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 font-bold"
+              className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 font-bold disabled:opacity-40 disabled:cursor-not-allowed"
             >
               +
             </button>
@@ -166,8 +169,14 @@ export default function ProductInfo({
 
         <div className="text-xs text-slate-500">
           Sản phẩm có sẵn:{" "}
-          <strong className="text-slate-800 font-semibold">
-            {stockQuantity} {product.unit || "sản phẩm"}
+          <strong
+            className={`font-semibold ${
+              isOutOfStock ? "text-rose-600" : "text-slate-800"
+            }`}
+          >
+            {isOutOfStock
+              ? "Tạm hết hàng"
+              : `${stockQuantity} ${product.unit || "sản phẩm"}`}
           </strong>
         </div>
       </div>
@@ -175,17 +184,19 @@ export default function ProductInfo({
       <div className="grid grid-cols-2 gap-3 pt-3">
         <button
           type="button"
+          disabled={isOutOfStock}
           onClick={onAddToCart}
-          className="w-full py-3 border border-green-600 text-green-600 hover:bg-green-50 font-bold rounded-lg transition cursor-pointer"
+          className="w-full py-3 border border-green-600 text-green-600 hover:bg-green-50 disabled:border-slate-300 disabled:text-slate-400 disabled:bg-slate-100 disabled:cursor-not-allowed font-bold rounded-lg transition cursor-pointer"
         >
-          Thêm vào giỏ hàng
+          {isOutOfStock ? "Hết hàng" : "Thêm vào giỏ hàng"}
         </button>
         <button
           type="button"
+          disabled={isOutOfStock}
           onClick={onBuyNow}
-          className="w-full py-3 bg-green-700 hover:bg-green-800 text-white font-bold rounded-lg transition shadow-xs cursor-pointer"
+          className="w-full py-3 bg-green-700 hover:bg-green-800 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold rounded-lg transition shadow-xs cursor-pointer"
         >
-          Mua ngay
+          {isOutOfStock ? "Tạm hết hàng" : "Mua ngay"}
         </button>
       </div>
     </div>

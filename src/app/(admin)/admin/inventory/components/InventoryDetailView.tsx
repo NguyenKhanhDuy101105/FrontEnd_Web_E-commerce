@@ -190,17 +190,19 @@ export default function InventoryDetailView({
                       Không có sản phẩm nào trong nhóm này.
                     </div>
                   ) : (
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto max-h-70 overflow-y-auto">
                       <table className="w-full text-left text-xs text-slate-600">
-                        <thead className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 border-b border-slate-200">
+                        <thead className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 border-b border-slate-200 sticky top-0 z-10 shadow-xs">
                           <tr>
-                            <th className="py-2.5 px-4">Tên sản phẩm</th>
-                            <th className="py-2.5 px-3">Mã SKU</th>
-                            <th className="py-2.5 px-3">Đơn vị</th>
-                            <th className="py-2.5 px-3 text-center">
+                            <th className="py-2.5 px-4 bg-slate-50">
+                              Tên sản phẩm
+                            </th>
+                            <th className="py-2.5 px-3 bg-slate-50">Mã SKU</th>
+                            <th className="py-2.5 px-3 bg-slate-50">Đơn vị</th>
+                            <th className="py-2.5 px-3 text-center bg-slate-50">
                               Trạng thái kho
                             </th>
-                            <th className="py-2.5 px-4 text-right">
+                            <th className="py-2.5 px-4 text-right bg-slate-50">
                               Số lượng tồn
                             </th>
                           </tr>

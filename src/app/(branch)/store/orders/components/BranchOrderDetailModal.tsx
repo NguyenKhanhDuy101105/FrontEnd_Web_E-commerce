@@ -95,12 +95,12 @@ export default function BranchOrderDetailModal({
   const isAllItemsPacked = useMemo(() => {
     if (!detail?.items || detail.items.length === 0) return false;
     return detail.items.every((i) => checkedItems[i.productId]);
-  }, [detail?.items, checkedItems]);
+  }, [detail, checkedItems]);
 
   const packedCount = useMemo(() => {
     if (!detail?.items) return 0;
     return detail.items.filter((i) => checkedItems[i.productId]).length;
-  }, [detail?.items, checkedItems]);
+  }, [detail, checkedItems]);
 
   if (!isOpen || !orderId) return null;
 
@@ -152,31 +152,36 @@ export default function BranchOrderDetailModal({
     <>
       <div className="fixed inset-0 bg-black/50 z-100 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
         <div className="bg-white rounded-lg max-w-2xl w-full p-6 shadow-xl relative space-y-5 z-102 my-8">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-extrabold text-slate-800">
+          <div className="flex items-start justify-between border-b border-slate-100 pb-4 gap-3">
+            <div className="space-y-1.5 min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base sm:text-lg font-extrabold text-slate-800 break-all leading-snug">
                   {detail ? `Đơn hàng #${detail.orderCode}` : "Đang tải..."}
                 </h2>
+
                 {detail && (
-                  <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-slate-100 text-slate-700">
+                  <span className="shrink-0 px-2.5 py-0.5 text-[11px] sm:text-xs font-bold rounded-full bg-slate-100 text-slate-700">
                     {detail.deliveryType === "DELIVERY"
                       ? "Giao tận nơi"
                       : "Nhận tại cửa hàng"}
                   </span>
                 )}
               </div>
+
               {detail && (
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-[11px] sm:text-xs text-slate-400">
                   Tạo lúc: {new Date(detail.createdAt).toLocaleString("vi-VN")}
                 </p>
               )}
             </div>
+
             <button
+              type="button"
               onClick={onClose}
-              className="p-1 text-slate-400 hover:text-slate-600 rounded-lg transition cursor-pointer"
+              className="p-1 text-slate-400 hover:text-slate-600 rounded-lg transition cursor-pointer shrink-0 -mr-1"
+              title="Đóng"
             >
-              <XMarkIcon className="w-6 h-6" />
+              <XMarkIcon className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
           </div>
 
@@ -315,21 +320,22 @@ export default function BranchOrderDetailModal({
                   </button>
                 )}
 
-                {detail.status === "READY_FOR_PICKUP" && (
-                  <button
-                    onClick={() =>
-                      handleExecuteAction(
-                        () =>
-                          branchOrderService.handoverOrder(branchId, orderId),
-                        "Đã bàn giao đơn hàng cho Shipper!",
-                      )
-                    }
-                    disabled={actionLoading}
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                  >
-                    <TruckIcon className="w-4 h-4" /> Bàn giao Shipper
-                  </button>
-                )}
+                {detail.status === "READY_FOR_PICKUP" &&
+                  detail.deliveryType === "DELIVERY" && (
+                    <button
+                      onClick={() =>
+                        handleExecuteAction(
+                          () =>
+                            branchOrderService.handoverOrder(branchId, orderId),
+                          "Đã bàn giao đơn hàng cho Shipper!",
+                        )
+                      }
+                      disabled={actionLoading}
+                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <TruckIcon className="w-4 h-4" /> Bàn giao Shipper
+                    </button>
+                  )}
 
                 {detail.status === "SHIPPING" && (
                   <>

@@ -14,6 +14,7 @@ import {
 import { useAuthGuard } from "@/src/hooks/useAuthGuard";
 import Cookies from "js-cookie";
 import LoadingSpinner from "@/src/components/common/LoadingSpinner";
+import { orderBadgeManager } from "@/src/utils/orderBadgeEvent";
 
 interface UserData {
   id?: string;
@@ -32,6 +33,7 @@ export default function UserMenu() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [userInfo, setUserInfo] = useState<UserData | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
+  const [hasUnreadOrder, setHasUnreadOrder] = useState<boolean>(false);
 
   const checkAuth = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -59,6 +61,16 @@ export default function UserMenu() {
   useEffect(() => {
     checkAuth();
   }, [checkAuth, authGuardStatus]);
+
+  useEffect(() => {
+    setHasUnreadOrder(orderBadgeManager.getHasUnread());
+
+    const unsubscribe = orderBadgeManager.subscribe(() => {
+      setHasUnreadOrder(orderBadgeManager.getHasUnread());
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handleMouseEnter = () => {
     checkAuth();
@@ -120,10 +132,14 @@ export default function UserMenu() {
         <button
           type="button"
           onClick={handleOnClick}
-          className="p-2 text-slate-700 hover:text-emerald-600 hover:bg-slate-100 rounded-full transition-colors focus:outline-none cursor-pointer"
+          className="relative p-2 text-slate-700 hover:text-emerald-600 hover:bg-slate-100 rounded-full transition-colors focus:outline-none cursor-pointer"
           title="Tài khoản"
         >
           <UserIcon className="w-6 h-6" />
+
+          {isLoggedIn && hasUnreadOrder && (
+            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full ring-2 ring-white" />
+          )}
         </button>
 
         {isHovered && (
@@ -159,10 +175,21 @@ export default function UserMenu() {
                     <Link
                       href="/account/orders"
                       onClick={() => setIsHovered(false)}
-                      className="flex items-center space-x-3 px-3 py-2 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition-colors font-medium"
+                      className="flex items-center justify-between px-3 py-2 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition-colors font-medium"
                     >
-                      <ShoppingBagIcon className="w-5 h-5 text-slate-500" />
-                      <span>Quản lý đơn hàng</span>
+                      <div className="flex items-center space-x-3">
+                        <ShoppingBagIcon className="w-5 h-5 text-slate-500" />
+                        <span>Quản lý đơn hàng</span>
+                      </div>
+
+                      {hasUnreadOrder && (
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 bg-rose-500 rounded-full" />
+                          <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full border border-rose-200/60">
+                            Mới
+                          </span>
+                        </span>
+                      )}
                     </Link>
 
                     <Link

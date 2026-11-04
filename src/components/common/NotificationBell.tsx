@@ -7,59 +7,78 @@ import {
   BellIcon,
   ArrowRightEndOnRectangleIcon,
 } from "@heroicons/react/24/outline";
-
-interface NotificationItem {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  isRead: boolean;
-}
+import notificationService, {
+  NotificationItem,
+} from "@/src/services/customer/notificationService";
 
 export default function NotificationBell() {
   const router = useRouter();
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(false);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const checkAuth = useCallback(() => {
+  const checkAuthAndFetchUnread = useCallback(async () => {
     if (typeof window === "undefined") return;
     const token =
       localStorage.getItem("accessToken") || localStorage.getItem("token");
-    setIsLoggedIn(Boolean(token));
+
+    const auth = Boolean(token);
+    setIsLoggedIn(auth);
+
+    if (auth) {
+      try {
+        const res = await notificationService.getUnreadCount();
+        if (res.status === "success" && res.data) {
+          const count = res.data.unreadCount || 0;
+          setUnreadCount(count);
+          setHasUnread(count > 0);
+        }
+      } catch (error) {
+        console.error("Lỗi khi tải số lượng thông báo chưa đọc:", error);
+      }
+    } else {
+      setHasUnread(false);
+      setUnreadCount(0);
+    }
   }, []);
 
   useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
+    checkAuthAndFetchUnread();
+  }, [checkAuthAndFetchUnread]);
+
+  const fetchQuickNotifications = async () => {
+    setLoading(true);
+    try {
+      const res = await notificationService.getNotifications({
+        page: 0,
+        size: 5,
+      });
+
+      if (res.status === "success" && res.data) {
+        setNotifications(res.data.content || []);
+        if (res.data.unreadCount !== undefined) {
+          setUnreadCount(res.data.unreadCount);
+          setHasUnread(res.data.unreadCount > 0);
+        }
+      }
+    } catch (error) {
+      console.error("Lỗi khi tải danh sách thông báo xem nhanh:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleMouseEnter = () => {
-    checkAuth();
     setIsHovered(true);
 
     const token =
       localStorage.getItem("accessToken") || localStorage.getItem("token");
 
     if (token) {
-      const mockData: NotificationItem[] = [
-        {
-          id: "1",
-          title: "Đơn hàng đã giao thành công",
-          message: "Đơn hàng #UBM1023 của bạn đã giao hoàn tất.",
-          time: "5 phút trước",
-          isRead: false,
-        },
-        {
-          id: "2",
-          title: "Ưu đãi siêu thị AI",
-          message: "Tặng voucher 20k cho đơn hàng nguyên liệu làm lẩu.",
-          time: "1 giờ trước",
-          isRead: false,
-        },
-      ];
-      setNotifications(mockData);
-      setHasUnread(mockData.some((item) => !item.isRead));
+      fetchQuickNotifications();
     }
   };
 
@@ -67,10 +86,41 @@ export default function NotificationBell() {
     setIsHovered(false);
 
     if (isLoggedIn) {
-      setHasUnread(false);
       router.push("/account/notifications");
     } else {
       router.push("/auth/login?redirect=/account/notifications");
+    }
+  };
+
+  const handleNotificationClick = async (item: NotificationItem) => {
+    setIsHovered(false);
+
+    if (!item.isRead) {
+      try {
+        await notificationService.markAsRead(item.id);
+        const newUnreadCount = Math.max(0, unreadCount - 1);
+        setUnreadCount(newUnreadCount);
+        setHasUnread(newUnreadCount > 0);
+      } catch (error) {
+        console.error("Lỗi khi đánh dấu thông báo đã đọc:", error);
+      }
+    }
+
+    // Luôn chuyển hướng đến trang quản lý thông báo của tài khoản
+    router.push("/account/notifications");
+  };
+
+  const formatTime = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        day: "2-digit",
+        month: "2-digit",
+      });
+    } catch {
+      return dateString;
     }
   };
 
@@ -89,7 +139,7 @@ export default function NotificationBell() {
         <BellIcon className="w-6 h-6" />
 
         {isLoggedIn && hasUnread && (
-          <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white" />
+          <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full ring-2 ring-white" />
         )}
       </button>
 
@@ -101,9 +151,9 @@ export default function NotificationBell() {
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
                   <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
                     <span>Thông báo</span>
-                    {hasUnread && (
-                      <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
-                        Mới
+                    {unreadCount > 0 && (
+                      <span className="text-[10px] bg-rose-50 text-rose-600 border border-rose-200/60 px-2 py-0.5 rounded-full font-extrabold">
+                        {unreadCount} mới
                       </span>
                     )}
                   </h4>
@@ -116,28 +166,32 @@ export default function NotificationBell() {
                   </button>
                 </div>
 
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {notifications.length > 0 ? (
+                <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200">
+                  {loading ? (
+                    <div className="text-center py-6 text-slate-400 text-xs font-medium">
+                      Đang tải thông báo...
+                    </div>
+                  ) : notifications.length > 0 ? (
                     notifications.map((item) => (
                       <div
                         key={item.id}
-                        onClick={handleClickBell}
-                        className={`p-2.5 rounded-xl text-left transition-colors cursor-pointer ${
+                        onClick={() => handleNotificationClick(item)}
+                        className={`p-2.5 rounded-xl text-left transition-colors cursor-pointer border ${
                           !item.isRead
-                            ? "bg-emerald-50/60 hover:bg-emerald-50"
-                            : "hover:bg-slate-50"
+                            ? "bg-emerald-50/50 hover:bg-emerald-50 border-emerald-100"
+                            : "hover:bg-slate-50 border-transparent"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-1">
                           <p className="text-xs font-bold text-slate-800 truncate">
                             {item.title}
                           </p>
-                          <span className="text-[10px] text-slate-400 shrink-0">
-                            {item.time}
+                          <span className="text-[10px] text-slate-400 shrink-0 font-medium">
+                            {formatTime(item.createdAt)}
                           </span>
                         </div>
                         <p className="text-xs text-slate-600 line-clamp-2 mt-0.5">
-                          {item.message}
+                          {item.content}
                         </p>
                       </div>
                     ))

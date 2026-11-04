@@ -55,25 +55,87 @@ export default function ProductDiscountManagementPage() {
     }
   }, []);
 
+  const getAllSubCategoryIds = (cat: CategoryItem): string[] => {
+    let ids: string[] = [cat.id];
+    if (cat.children && Array.isArray(cat.children)) {
+      cat.children.forEach((child) => {
+        ids = ids.concat(getAllSubCategoryIds(child));
+      });
+    }
+    return ids;
+  };
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const discountRes = await productDiscountService.getDiscounts();
-      if (discountRes.status === "success" && Array.isArray(discountRes.data)) {
-        setDiscounts(discountRes.data);
-      } else {
-        setDiscounts([]);
+      let subCategoryIds: string[] = [];
+
+      if (categories.length > 0) {
+        const currentL1 = categories.find((c) => c.id === selectedL1Id);
+        if (currentL1) {
+          subCategoryIds = getAllSubCategoryIds(currentL1);
+        }
       }
 
-      const prodRes = await adminProductService.getProducts({
-        page: 0,
-        size: 100,
-        search: searchTerm.trim() || undefined,
-      });
+      if (subCategoryIds.length > 0) {
+        const discountPromises = subCategoryIds.map((id) =>
+          productDiscountService.getDiscountsByCategory(id).catch(() => null),
+        );
 
-      if (prodRes && prodRes.data && Array.isArray(prodRes.data.content)) {
-        setProducts(prodRes.data.content);
+        const productPromises = subCategoryIds.map((id) =>
+          adminProductService
+            .getProductsByCategoryId(id, { page: 0, size: 100 })
+            .catch(() => null),
+        );
+
+        const [discountResults, productResults] = await Promise.all([
+          Promise.all(discountPromises),
+          Promise.all(productPromises),
+        ]);
+
+        const combinedDiscounts: ProductDiscountItem[] = [];
+        const seenDiscountIds = new Set<string>();
+
+        discountResults.forEach((res) => {
+          if (res && res.status === "success" && Array.isArray(res.data)) {
+            res.data.forEach((item) => {
+              if (!seenDiscountIds.has(item.id)) {
+                seenDiscountIds.add(item.id);
+                combinedDiscounts.push(item);
+              }
+            });
+          }
+        });
+        setDiscounts(combinedDiscounts);
+
+        const combinedProducts: any[] = [];
+        const seenProductIds = new Set<string>();
+
+        productResults.forEach((res) => {
+          if (res && res.data && Array.isArray(res.data.content)) {
+            res.data.content.forEach((item: any) => {
+              if (!seenProductIds.has(item.id)) {
+                seenProductIds.add(item.id);
+                combinedProducts.push(item);
+              }
+            });
+          }
+        });
+
+        if (searchTerm.trim()) {
+          const term = searchTerm.toLowerCase();
+          setProducts(
+            combinedProducts.filter(
+              (p) =>
+                p.name?.toLowerCase().includes(term) ||
+                p.sku?.toLowerCase().includes(term),
+            ),
+          );
+        } else {
+          setProducts(combinedProducts);
+        }
       } else {
+        setDiscounts([]);
         setProducts([]);
       }
     } catch (error) {
@@ -82,7 +144,7 @@ export default function ProductDiscountManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm]);
+  }, [categories, selectedL1Id, searchTerm]);
 
   useEffect(() => {
     fetchCategories();

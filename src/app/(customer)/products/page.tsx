@@ -18,25 +18,18 @@ import { notifyCartUpdated } from "@/src/utils/cartEvent";
 import { showToast } from "@/src/utils/toast";
 
 const SORT_OPTIONS = [
-  {
-    key: "promo",
-    label: "Khuyến mãi tốt nhất",
-    apiKey: "discountPercent,desc",
-  },
-  { key: "price_asc", label: "Giá tăng dần", apiKey: "displayPrice,asc" },
-  { key: "price_desc", label: "Giá giảm dần", apiKey: "displayPrice,desc" },
-  { key: "newest", label: "Sản phẩm mới nhất", apiKey: "createdAt,desc" },
-  {
-    key: "bestseller",
-    label: "Sản phẩm bán chạy nhất",
-    apiKey: "soldQuantity,desc",
-  },
+  { key: "promo", label: "Khuyến mãi tốt nhất", apiKey: "discount_desc" },
+  { key: "price_asc", label: "Giá tăng dần", apiKey: "price_asc" },
+  { key: "price_desc", label: "Giá giảm dần", apiKey: "price_desc" },
+  { key: "newest", label: "Sản phẩm mới nhất", apiKey: "newest" },
+  { key: "name_asc", label: "Tên A-Z", apiKey: "name_asc" },
+  { key: "name_desc", label: "Tên Z-A", apiKey: "name_desc" },
 ];
 
 function ProductsListingContent() {
   const searchParams = useSearchParams();
   const categoryId = searchParams.get("categoryId");
-  const searchQuery = searchParams.get("search") || searchParams.get("keyword"); // Lấy từ khóa tìm kiếm từ URL
+  const searchQuery = searchParams.get("search") || searchParams.get("keyword");
 
   const minPrice = searchParams.get("minPrice");
   const maxPrice = searchParams.get("maxPrice");
@@ -61,7 +54,8 @@ function ProductsListingContent() {
         (opt) => opt.key === activeSortKey,
       );
 
-      // Thêm tham số search / keyword vào params
+      const cleanSearch = searchQuery?.trim() || undefined;
+
       const params: GetProductsParams = {
         branchId,
         page,
@@ -69,7 +63,7 @@ function ProductsListingContent() {
         ...(selectedOption?.apiKey ? { sort: selectedOption.apiKey } : {}),
         ...(minPrice ? { minPrice: Number(minPrice) } : {}),
         ...(maxPrice ? { maxPrice: Number(maxPrice) } : {}),
-        ...(searchQuery ? { search: searchQuery, keyword: searchQuery } : {}), // Truyền từ khóa xuống API
+        ...(cleanSearch ? { search: cleanSearch, keyword: cleanSearch } : {}),
       };
 
       if (categoryId) {
@@ -222,8 +216,9 @@ function ProductsListingContent() {
               </div>
             ) : products.length === 0 ? (
               <div className="bg-white p-12 text-center border border-slate-200 text-slate-500 text-sm">
-                Không tìm thấy sản phẩm nào phù hợp với từ khóa &quot;
-                {searchQuery}&quot;.
+                {searchQuery
+                  ? `Không tìm thấy sản phẩm nào phù hợp với từ khóa "${searchQuery}".`
+                  : "Không tìm thấy sản phẩm nào phù hợp."}
               </div>
             ) : (
               <div className="space-y-4">

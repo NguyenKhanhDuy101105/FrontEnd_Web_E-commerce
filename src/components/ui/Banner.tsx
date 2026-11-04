@@ -25,12 +25,12 @@ export default function Banner() {
       leftBanner: {
         image: "/images/Banner/Banner1.png",
         title: "Rộn ràng phá cỗ - Ưu đãi thả ga",
-        link: "/promotions/mid-autumn",
+        link: "/products?categoryId=bea0212c-c97f-46c1-b443-d65946d8fbae",
       },
       rightBanner: {
         image: "/images/Banner/Banner2.png",
         title: "Khám phá hệ sinh thái đổi điểm UrbanMart",
-        link: "/rewards",
+        link: "/products?categoryId=d57328c7-a5c0-4a25-a976-22bff16bfdbf",
       },
     },
     {
@@ -38,12 +38,12 @@ export default function Banner() {
       leftBanner: {
         image: "/images/Banner/Banner2.png",
         title: "Thực phẩm tươi sống giao nhanh 2h",
-        link: "/promotions/fresh-food",
+        link: "/products?categoryId=d57328c7-a5c0-4a25-a976-22bff16bfdbf",
       },
       rightBanner: {
         image: "/images/Banner/Banner3.png",
         title: "Siêu đại tiệc trái cây nhập khẩu",
-        link: "/promotions/fruits",
+        link: "/products?categoryId=73bd05ae-5ec0-4921-bb03-769338bfbbc9",
       },
     },
     {
@@ -51,12 +51,12 @@ export default function Banner() {
       leftBanner: {
         image: "/images/Banner/Banner3.png",
         title: "Thực phẩm tươi sống giao nhanh 2h",
-        link: "/promotions/fresh-food",
+        link: "/products?categoryId=73bd05ae-5ec0-4921-bb03-769338bfbbc9",
       },
       rightBanner: {
         image: "/images/Banner/Banner4.png",
         title: "Siêu đại tiệc trái cây nhập khẩu",
-        link: "/promotions/fruits",
+        link: "/products?categoryId=f0b4ca9a-65d8-4b71-b4ea-57b62fba74d3",
       },
     },
     {
@@ -64,12 +64,12 @@ export default function Banner() {
       leftBanner: {
         image: "/images/Banner/Banner4.png",
         title: "Thực phẩm tươi sống giao nhanh 2h",
-        link: "/promotions/fresh-food",
+        link: "/products?categoryId=f0b4ca9a-65d8-4b71-b4ea-57b62fba74d3",
       },
       rightBanner: {
         image: "/images/Banner/Banner5.png",
         title: "Siêu đại tiệc trái cây nhập khẩu",
-        link: "/promotions/fruits",
+        link: "/products?categoryId=473015de-4868-461d-8405-758f6f7600a6",
       },
     },
     {
@@ -77,12 +77,12 @@ export default function Banner() {
       leftBanner: {
         image: "/images/Banner/Banner5.png",
         title: "Thực phẩm tươi sống giao nhanh 2h",
-        link: "/promotions/fresh-food",
+        link: "/products?categoryId=473015de-4868-461d-8405-758f6f7600a6",
       },
       rightBanner: {
         image: "/images/Banner/Banner6.png",
         title: "Siêu đại tiệc trái cây nhập khẩu",
-        link: "/promotions/fruits",
+        link: "/products?categoryId=94945dff-c383-455a-bf58-b98519665ec3",
       },
     },
     {
@@ -90,12 +90,12 @@ export default function Banner() {
       leftBanner: {
         image: "/images/Banner/Banner6.png",
         title: "Thực phẩm tươi sống giao nhanh 2h",
-        link: "/promotions/fresh-food",
+        link: "/products?categoryId=94945dff-c383-455a-bf58-b98519665ec3",
       },
       rightBanner: {
         image: "/images/Banner/Banner7.png",
         title: "Siêu đại tiệc trái cây nhập khẩu",
-        link: "/promotions/fruits",
+        link: "/products?categoryId=e6e371c5-a6fc-4626-ba26-173c33d2542c",
       },
     },
     {
@@ -103,12 +103,12 @@ export default function Banner() {
       leftBanner: {
         image: "/images/Banner/Banner7.png",
         title: "Thực phẩm tươi sống giao nhanh 2h",
-        link: "/promotions/fresh-food",
+        link: "/products?categoryId=e6e371c5-a6fc-4626-ba26-173c33d2542c",
       },
       rightBanner: {
         image: "/images/Banner/Banner8.png",
         title: "Siêu đại tiệc trái cây nhập khẩu",
-        link: "/promotions/fruits",
+        link: "/products?categoryId=fff1615d-1a7f-4a4f-9044-76c6bfaedb31",
       },
     },
     {
@@ -116,12 +116,12 @@ export default function Banner() {
       leftBanner: {
         image: "/images/Banner/Banner8.png",
         title: "Thực phẩm tươi sống giao nhanh 2h",
-        link: "/promotions/fresh-food",
+        link: "/products?categoryId=fff1615d-1a7f-4a4f-9044-76c6bfaedb31",
       },
       rightBanner: {
         image: "/images/Banner/Banner1.png",
         title: "Siêu đại tiệc trái cây nhập khẩu",
-        link: "/promotions/fruits",
+        link: "/products?categoryId=bea0212c-c97f-46c1-b443-d65946d8fbae",
       },
     },
   ];

@@ -17,23 +17,19 @@ export default function AdminInventoryPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [detailLoading, setDetailLoading] = useState<boolean>(false);
 
-  // Danh sách các chi nhánh cho màn hình danh sách Cards
   const [branches, setBranches] = useState<BranchInventorySummary[]>([]);
 
-  // Chi nhánh & dữ liệu tồn kho phân cấp danh mục đang được chọn
   const [selectedBranchSummary, setSelectedBranchSummary] =
     useState<BranchInventorySummary | null>(null);
   const [branchInventoryData, setBranchInventoryData] =
     useState<BranchInventoryByCategoryData | null>(null);
 
-  // 💥 1. Call API mới: /api/admin/branches/inventory/summary
   const fetchInventorySummary = useCallback(async () => {
     setLoading(true);
     try {
       const res = await adminInventoryService.getInventorySummary();
 
       if (res && res.data && Array.isArray(res.data)) {
-        // Ánh xạ dữ liệu từ API Summary sang format của BranchCard
         const mappedBranches: BranchInventorySummary[] = res.data.map(
           (item) => ({
             id: item.branchId,
@@ -59,7 +55,6 @@ export default function AdminInventoryPage() {
     fetchInventorySummary();
   }, [fetchInventorySummary]);
 
-  // 💥 2. Call API mới: /api/admin/branches/{branchId}/inventory/by-categories
   const handleSelectBranch = async (branch: BranchInventorySummary) => {
     setSelectedBranchSummary(branch);
     setDetailLoading(true);
@@ -83,7 +78,6 @@ export default function AdminInventoryPage() {
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen text-slate-800 space-y-6">
-      {/* Header Trang */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
@@ -96,14 +90,12 @@ export default function AdminInventoryPage() {
         </div>
       </div>
 
-      {/* Trang Thái Loading Chính */}
       {loading ? (
         <div className="py-20 text-center text-slate-400 text-xs font-medium bg-white rounded-xl border border-slate-200/80">
           <ArrowPathIcon className="w-6 h-6 animate-spin mx-auto mb-2 text-[#0d5c3a]" />
           Đang tải dữ liệu hàng tồn kho...
         </div>
       ) : selectedBranchSummary ? (
-        /* Màn hình XEM CHI TIẾT KHO CHI NHÁNH THEO DANH MỤC */
         detailLoading ? (
           <div className="py-20 text-center text-slate-400 text-xs font-medium bg-white rounded-xl border border-slate-200/80">
             <ArrowPathIcon className="w-6 h-6 animate-spin mx-auto mb-2 text-[#0d5c3a]" />
@@ -120,7 +112,6 @@ export default function AdminInventoryPage() {
           />
         )
       ) : (
-        /* Màn hình DANH SÁCH CARDS CHI NHÁNH */
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
             <BuildingStorefrontIcon className="w-4 h-4 text-[#0d5c3a]" />

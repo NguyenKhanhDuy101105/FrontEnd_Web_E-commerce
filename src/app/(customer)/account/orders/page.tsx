@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import orderService, {
   OrderGroup,
   OrderSummary,
@@ -12,13 +12,14 @@ import OrderTrackingWidget, {
   StatusCounts,
 } from "./components/OrderTrackingWidget";
 import Pagination from "@/src/components/common/Pagination";
+import { orderBadgeManager } from "@/src/utils/orderBadgeEvent";
 
 const ORDER_GROUPS: { key: OrderGroup; label: string }[] = [
-  { key: "ALL", label: "Tất cả" },
+  { key: "ALL", label: "Đơn hàng hiện tại" },
   { key: "PENDING", label: "Chờ xác nhận" },
   { key: "PROCESSING", label: "Đang đóng gói" },
   { key: "WAITING", label: "Đang vận chuyển" },
-  { key: "COMPLETED", label: "Đã hoàn thành" },
+  { key: "COMPLETED", label: "Lịch sử mua hàng" },
   { key: "CANCELLED", label: "Đã hủy" },
   { key: "RETURNED", label: "Trả hàng" },
 ];
@@ -106,12 +107,16 @@ export default function OrderManagementPage() {
     completed: 0,
   });
 
+  useEffect(() => {
+    orderBadgeManager.clearUnread();
+  }, []);
+
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
       const res = await orderService.getOrders({
         page,
-        size: 10,
+        size: 20, // Tăng size lấy nhiều đơn để trượt mượt mà
         group: activeGroup,
       });
 
@@ -162,6 +167,14 @@ export default function OrderManagementPage() {
     fetchStatusCounts();
   }, [fetchOrders, fetchStatusCounts]);
 
+  // Lọc đơn hàng ở Tab "Tất cả / Đơn hàng hiện tại": Loại bỏ các đơn đã COMPLETED
+  const displayedOrders = useMemo(() => {
+    if (activeGroup === "ALL") {
+      return orders.filter((o) => o.status !== "COMPLETED");
+    }
+    return orders;
+  }, [orders, activeGroup]);
+
   const handleGroupChange = (group: OrderGroup) => {
     setActiveGroup(group);
     setPage(0);
@@ -194,6 +207,7 @@ export default function OrderManagementPage() {
         />
 
         <div className="space-y-4 pt-2">
+          {/* Thanh Tab Chuyển đổi Trạng Thái */}
           <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-100 no-scrollbar">
             {ORDER_GROUPS.map((tab) => {
               const isActive = activeGroup === tab.key;
@@ -214,6 +228,7 @@ export default function OrderManagementPage() {
             })}
           </div>
 
+          {/* Danh sách Đơn hàng */}
           {loading ? (
             <div className="space-y-3 py-4">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -223,25 +238,29 @@ export default function OrderManagementPage() {
                 />
               ))}
             </div>
-          ) : orders.length === 0 ? (
+          ) : displayedOrders.length === 0 ? (
             <div className="py-16 text-center space-y-2">
               <p className="text-sm font-bold text-slate-700">
                 Không tìm thấy đơn hàng nào
               </p>
               <p className="text-xs text-slate-400">
-                Bạn chưa có đơn hàng nào trong danh mục này.
+                {activeGroup === "ALL"
+                  ? "Bạn hiện tại không có đơn hàng nào đang trong quá trình xử lý."
+                  : "Bạn chưa có đơn hàng nào trong danh mục này."}
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {orders.map((order) => {
+            <div className="max-h-[370px] overflow-y-auto pr-1 space-y-3 scrollbar-thin scrollbar-thumb-slate-200">
+              {displayedOrders.map((order) => {
                 const canConfirmReceived =
-                  order.status === "DELIVERED_PENDING_CONFIRMATION";
+                  order.status === "DELIVERED_PENDING_CONFIRMATION" ||
+                  order.status === "READY_FOR_PICKUP" ||
+                  order.status === "SHIPPING";
 
                 return (
                   <div
                     key={order.id}
-                    className="border border-slate-200/80 rounded-lg p-4 hover:border-slate-300 transition bg-white space-y-3"
+                    className="border border-slate-200/80 rounded-lg p-4 hover:border-slate-300 transition bg-white space-y-3 shadow-2xs"
                   >
                     <div className="flex items-center justify-between pb-2 border-b border-slate-100 text-xs">
                       <div className="space-x-2">
@@ -304,7 +323,9 @@ export default function OrderManagementPage() {
                         >
                           {confirmingId === order.id
                             ? "Đang xử lý..."
-                            : "Đã nhận được hàng"}
+                            : order.status === "READY_FOR_PICKUP"
+                              ? "Xác nhận đã lấy hàng"
+                              : "Đã nhận được hàng"}
                         </button>
                       )}
                     </div>

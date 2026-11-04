@@ -147,7 +147,11 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
 
         <div className="bg-white rounded-xl border border-slate-200/80 p-6 grid grid-cols-1 md:grid-cols-12 gap-8 shadow-xs">
           <div className="md:col-span-5">
-            <ProductGallery images={product.images} name={product.name} />
+            <ProductGallery
+              images={product.images}
+              name={product.name}
+              isOutOfStock={product.isOutOfStock}
+            />
           </div>
           <div className="md:col-span-7">
             <ProductInfo

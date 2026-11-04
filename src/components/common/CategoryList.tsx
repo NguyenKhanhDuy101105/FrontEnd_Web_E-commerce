@@ -8,7 +8,6 @@ import {
   CategoryItem,
 } from "@/src/services/customer/categoriesService";
 
-// Ánh xạ đường dẫn ảnh gán cứng cho từng danh mục
 const CATEGORY_IMAGE_MAP: Record<string, string> = {
   "Rau củ, trái cây": "/images/Category/rau cu qua.png",
   "Sữa và sản phẩm từ sữa": "/images/Category/sua va san pham tu sua.png",
@@ -82,12 +81,9 @@ export default function CategoryList() {
                 href={`/products?categoryId=${cat.id}&categoryName=${encodeURIComponent(cat.name)}`}
                 className="flex flex-col items-center group cursor-pointer text-center snap-start"
               >
-                {/* Khung nền tạo hình lá/khiên uốn cong như ảnh mẫu */}
                 <div className="relative w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 flex items-center justify-center mb-3 shrink-0">
-                  {/* Nền xanh nhạt uốn góc lá */}
                   <div className="absolute inset-0 bg-[#e8f5e9] rounded-tl-3xl rounded-br-3xl rounded-tr-xl rounded-bl-xl group-hover:scale-105 group-hover:bg-[#dcedc8] transition-all duration-300 ease-out" />
 
-                  {/* Ảnh sản phẩm tách nền đè phía trên */}
                   <div className="relative w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 z-10">
                     <Image
                       src={getCategoryImage(cat.name)}
@@ -99,7 +95,6 @@ export default function CategoryList() {
                   </div>
                 </div>
 
-                {/* Tên danh mục */}
                 <span className="text-xs sm:text-sm font-medium text-slate-700 group-hover:text-[#0d5c3a] transition-colors leading-tight line-clamp-2 max-w-28 sm:max-w-36 lg:max-w-40">
                   {cat.name}
                 </span>
