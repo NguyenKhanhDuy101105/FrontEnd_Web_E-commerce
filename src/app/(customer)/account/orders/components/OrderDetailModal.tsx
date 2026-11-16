@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   XMarkIcon,
   MapPinIcon,
@@ -11,6 +12,7 @@ import {
 } from "@heroicons/react/24/outline";
 import orderService, {
   OrderDetail,
+  OrderStatus,
 } from "@/src/services/customer/orderService";
 import { showToast } from "@/src/utils/toast";
 
@@ -20,11 +22,77 @@ interface OrderDetailModalProps {
   onOrderUpdated?: () => void;
 }
 
+const getStatusBadge = (status: OrderStatus) => {
+  switch (status) {
+    case "PENDING":
+      return (
+        <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200/60 rounded-full text-[11px] font-bold">
+          Chờ xác nhận
+        </span>
+      );
+    case "PROCESSING":
+      return (
+        <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-full text-[11px] font-bold">
+          Đang đóng gói
+        </span>
+      );
+    case "READY_FOR_PICKUP":
+      return (
+        <span className="px-2.5 py-1 bg-sky-50 text-sky-700 border border-sky-200/60 rounded-full text-[11px] font-bold">
+          Sẵn sàng lấy hàng
+        </span>
+      );
+    case "SHIPPING":
+      return (
+        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200/60 rounded-full text-[11px] font-bold">
+          Đang vận chuyển
+        </span>
+      );
+    case "DELIVERED_PENDING_CONFIRMATION":
+      return (
+        <span className="px-2.5 py-1 bg-amber-100 text-amber-800 border border-amber-300/80 rounded-full text-[11px] font-bold">
+          Đã giao hàng
+        </span>
+      );
+    case "DELIVERY_FAILED":
+      return (
+        <span className="px-2.5 py-1 bg-orange-50 text-orange-700 border border-orange-200/60 rounded-full text-[11px] font-bold">
+          Giao thất bại
+        </span>
+      );
+    case "COMPLETED":
+      return (
+        <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[11px] font-bold">
+          Đã hoàn thành
+        </span>
+      );
+    case "CANCELLED":
+      return (
+        <span className="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200/60 rounded-full text-[11px] font-bold">
+          Đã hủy
+        </span>
+      );
+    case "RETURNED":
+      return (
+        <span className="px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200/60 rounded-full text-[11px] font-bold">
+          Trả hàng
+        </span>
+      );
+    default:
+      return (
+        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-[11px] font-bold">
+          {status}
+        </span>
+      );
+  }
+};
+
 export default function OrderDetailModal({
   orderId,
   onClose,
   onOrderUpdated,
 }: OrderDetailModalProps) {
+  const router = useRouter();
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [confirming, setConfirming] = useState<boolean>(false);
@@ -52,6 +120,11 @@ export default function OrderDetailModal({
 
   if (!orderId) return null;
 
+  const handleProductClick = (productId: string) => {
+    onClose();
+    router.push(`/products/${productId}`);
+  };
+
   const handleConfirmReceived = async () => {
     if (!detail) return;
     setConfirming(true);
@@ -78,22 +151,27 @@ export default function OrderDetailModal({
   return (
     <div className="fixed inset-0 z-101 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
       <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-          <div>
-            <h3 className="font-bold text-base sm:text-lg text-slate-800">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-start justify-between bg-slate-50 gap-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-base sm:text-lg text-slate-800 truncate">
               Chi tiết đơn hàng #{detail?.orderCode || "..."}
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Ngày đặt:{" "}
-              {detail?.createdAt
-                ? new Date(detail.createdAt).toLocaleString("vi-VN")
-                : "..."}
-            </p>
+            <div className="flex items-center justify-between gap-2 mt-1.5 pr-2">
+              <p className="text-xs text-slate-500">
+                Ngày đặt:{" "}
+                {detail?.createdAt
+                  ? new Date(detail.createdAt).toLocaleString("vi-VN")
+                  : "..."}
+              </p>
+              {detail && (
+                <div>{getStatusBadge(detail.status as OrderStatus)}</div>
+              )}
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-full transition cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-full transition cursor-pointer shrink-0"
           >
             <XMarkIcon className="w-5 h-5" />
           </button>
@@ -163,18 +241,19 @@ export default function OrderDetailModal({
                     {detail.items?.map((item) => (
                       <div
                         key={item.productId}
-                        className="py-3 px-2 flex items-center gap-3 hover:bg-slate-50 transition-colors"
+                        onClick={() => handleProductClick(item.productId)}
+                        className="py-3 px-2 flex items-center gap-3 hover:bg-slate-50 transition-colors cursor-pointer group"
                       >
                         <div className="relative w-12 h-12 rounded-lg border border-slate-100 overflow-hidden shrink-0 bg-white">
                           <Image
                             src={item.imageUrl || "/images/Banner1.jpeg"}
                             alt={item.productName}
                             fill
-                            className="object-contain p-1"
+                            className="object-contain p-1 group-hover:scale-105 transition-transform duration-200"
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-slate-800 truncate">
+                          <p className="text-xs font-bold text-slate-800 truncate group-hover:text-green-600 transition-colors">
                             {item.productName}
                           </p>
                           <p className="text-[11px] text-slate-400">

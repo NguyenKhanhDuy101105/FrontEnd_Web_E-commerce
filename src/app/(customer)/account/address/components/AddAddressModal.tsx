@@ -5,6 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import axios from "axios";
+import Link from "next/link";
 import {
   addressService,
   AddressItem,
@@ -37,6 +38,9 @@ const addressSchema = yup.object().shape({
   line: yup.string().required("Vui lòng nhập địa chỉ cụ thể"),
   note: yup.string().optional(),
   isDefault: yup.boolean().default(false),
+  acceptTerms: yup
+    .boolean()
+    .oneOf([true], "Bạn cần đồng ý với Chính sách bảo mật để lưu địa chỉ"),
 });
 
 type AddressFormData = yup.InferType<typeof addressSchema>;
@@ -54,7 +58,6 @@ export default function AddressFormModal({
   onClose,
   onSuccess,
 }: AddressFormModalProps) {
-  const [apiError, setApiError] = useState<string>("");
   const isEditMode = !!initialData;
 
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -81,6 +84,7 @@ export default function AddressFormModal({
           district: initialData.district || "",
           line: initialData.line || "",
           isDefault: !!(initialData.default || initialData.isDefault),
+          acceptTerms: true,
         }
       : {
           recipientName: "",
@@ -92,6 +96,7 @@ export default function AddressFormModal({
           line: "",
           note: "",
           isDefault: false,
+          acceptTerms: false,
         },
   });
 
@@ -163,15 +168,12 @@ export default function AddressFormModal({
   if (!isOpen) return null;
 
   const handleCloseModal = () => {
-    setApiError("");
     reset();
     onClose();
   };
 
   const onSubmit = async (data: AddressFormData) => {
     try {
-      setApiError("");
-
       const coords = await getCoordinatesFromAddress(
         data.line,
         data.ward,
@@ -212,7 +214,6 @@ export default function AddressFormModal({
       if (axios.isAxiosError(error)) {
         message = error.response?.data?.message || message;
       }
-      setApiError(message);
       showToast.error(message);
     }
   };
@@ -231,12 +232,6 @@ export default function AddressFormModal({
         <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-6">
           {isEditMode ? "Chỉnh sửa địa chỉ" : "Thông tin người nhận hàng"}
         </h2>
-
-        {apiError && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-lg">
-            {apiError}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
@@ -293,7 +288,6 @@ export default function AddressFormModal({
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              {/* Ô Tìm Kiếm Tỉnh/Thành phố */}
               <Controller
                 name="city"
                 control={control}
@@ -363,19 +357,51 @@ export default function AddressFormModal({
               />
             </div>
 
-            <div className="flex items-center justify-end space-x-2 mt-3">
+            <div className="flex items-center justify-end space-x-2 mb-4">
               <input
                 type="checkbox"
                 id="isDefault"
                 {...register("isDefault")}
-                className="w-4 h-4 text-[#0d5c3a] border-slate-300 rounded focus:ring-[#0d5c3a] cursor-pointer accent-[#0d5c3a]"
+                className="w-4 h-4 text-[#0d5c3a] border-slate-300 rounded focus:ring-0 focus:outline-none cursor-pointer accent-[#0d5c3a]"
               />
               <label
                 htmlFor="isDefault"
-                className="text-xs font-medium text-slate-700 cursor-pointer"
+                className="text-xs font-medium text-slate-700 cursor-pointer select-none"
               >
                 Đặt làm mặc định
               </label>
+            </div>
+
+            <div className="space-y-1 pt-2 border-t border-slate-100">
+              <div className="flex items-start space-x-2">
+                <input
+                  type="checkbox"
+                  id="acceptTermsModal"
+                  {...register("acceptTerms")}
+                  className="mt-0.5 w-4 h-4 text-[#0d5c3a] border-slate-300 rounded focus:ring-0 focus:outline-none cursor-pointer shrink-0 accent-[#0d5c3a]"
+                />
+                <label
+                  htmlFor="acceptTermsModal"
+                  className="text-xs text-slate-600 leading-relaxed text-justify cursor-pointer select-none"
+                >
+                  Bằng việc đánh dấu vào ô này, Tôi xác nhận đã đọc và đồng ý
+                  với{" "}
+                  <Link
+                    href="/privacy-policy"
+                    target="_blank"
+                    className="font-semibold text-emerald-700 hover:underline inline-flex items-center gap-0.5"
+                  >
+                    Chính sách bảo mật
+                  </Link>{" "}
+                  của UrbanMart, bao gồm quyền thu thập, sử dụng và tiết lộ dữ
+                  liệu cá nhân của tôi theo pháp luật quy định.
+                </label>
+              </div>
+              {errors.acceptTerms && (
+                <p className="text-xs text-red-500 font-medium pl-6">
+                  {errors.acceptTerms.message}
+                </p>
+              )}
             </div>
           </div>
 

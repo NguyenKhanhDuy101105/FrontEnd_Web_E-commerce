@@ -11,18 +11,42 @@ import {
   UpdateProfileRequest,
 } from "@/src/services/customer/authService";
 import { showToast } from "@/src/utils/toast";
+import LoadingSpinner from "@/src/components/common/LoadingSpinner";
 
 const profileSchema = yup.object().shape({
-  fullName: yup.string().required("Vui lòng nhập họ và tên"),
+  fullName: yup
+    .string()
+    .transform((value) =>
+      typeof value === "string" ? value.trim().replace(/\s+/g, " ") : value,
+    )
+    .required("Vui lòng nhập họ và tên")
+    .min(2, "Họ và tên quá ngắn"),
   email: yup
     .string()
+    .trim()
     .required("Vui lòng nhập email")
-    .email("Email không hợp lệ"),
+    .matches(
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+      "Địa chỉ email không hợp lệ",
+    ),
   phone: yup.string().optional(),
-  birthDate: yup.string().required("Vui lòng chọn ngày sinh"),
+  birthDate: yup
+    .string()
+    .required("Vui lòng chọn ngày sinh")
+    .test(
+      "not-in-future",
+      "Ngày sinh không được lớn hơn ngày hiện tại",
+      (value) => {
+        if (!value) return false;
+        const selectedDate = new Date(value);
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        return selectedDate <= today;
+      },
+    ),
   gender: yup
     .string()
-    .oneOf(["MALE", "FEMALE", "OTHER"], "Giới tính không hợp lệ")
+    .oneOf(["MALE", "FEMALE", "OTHER"] as const, "Giới tính không hợp lệ")
     .required("Vui lòng chọn giới tính"),
 });
 
@@ -30,6 +54,9 @@ type ProfileFormData = yup.InferType<typeof profileSchema>;
 
 export default function AccountPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isReloading, setIsReloading] = useState<boolean>(false);
+
+  const todayStr = new Date().toISOString().split("T")[0];
 
   const {
     register,
@@ -38,6 +65,7 @@ export default function AccountPage() {
     formState: { errors, isSubmitting, isDirty },
   } = useForm<ProfileFormData>({
     resolver: yupResolver(profileSchema),
+    mode: "onChange",
     defaultValues: {
       fullName: "",
       email: "",
@@ -90,9 +118,12 @@ export default function AccountPage() {
 
   const onSubmit = async (data: ProfileFormData) => {
     try {
+      const cleanedFullName = data.fullName.trim().replace(/\s+/g, " ");
+      const cleanedEmail = data.email.trim();
+
       const payload: UpdateProfileRequest = {
-        fullName: data.fullName,
-        email: data.email,
+        fullName: cleanedFullName,
+        email: cleanedEmail,
         birthDate: data.birthDate,
         gender: data.gender,
       };
@@ -107,7 +138,14 @@ export default function AccountPage() {
           "user",
           JSON.stringify({ ...currentUser, ...res.data }),
         );
-        reset(data);
+        reset({
+          ...data,
+          fullName: cleanedFullName,
+          email: cleanedEmail,
+        });
+
+        setIsReloading(true);
+        window.location.reload();
       }
     } catch (error) {
       console.error("Lỗi cập nhật thông tin cá nhân:", error);
@@ -128,7 +166,13 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="w-full space-y-6">
+    <div className="relative w-full space-y-6">
+      {isReloading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-xs">
+          <LoadingSpinner />
+        </div>
+      )}
+
       <div className="flex items-center justify-between pb-4 border-b border-slate-100">
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
           Thông tin tài khoản
@@ -198,6 +242,7 @@ export default function AccountPage() {
             </label>
             <input
               type="date"
+              max={todayStr}
               {...register("birthDate")}
               className="w-full px-4 py-2.5 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all text-slate-800"
             />

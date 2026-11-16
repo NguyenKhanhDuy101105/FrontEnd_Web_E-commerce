@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import {
   categoriesService,
   CategoryItem,
@@ -47,15 +47,16 @@ export default function AdminProductPage() {
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    if (isMounted) fetchCategories();
-    return () => {
-      isMounted = false;
-    };
+    fetchCategories();
   }, [fetchCategories]);
 
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    const cleanedLeadingSpace = value.replace(/^\s+/, "");
+    setSearchTerm(cleanedLeadingSpace);
   };
 
   const handleAddProductToCategory = (categoryId: string) => {
@@ -90,11 +91,9 @@ export default function AdminProductPage() {
   return (
     <div className="p-6 bg-slate-50 min-h-screen text-slate-800 space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-            Quản lý sản phẩm
-          </h1>
-        </div>
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+          Quản lý sản phẩm
+        </h1>
       </div>
 
       <div className="bg-white p-3.5 rounded-lg border border-slate-200/80 shadow-xs">
@@ -102,11 +101,29 @@ export default function AdminProductPage() {
           <MagnifyingGlassIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Tìm kiếm theo tên sản phẩm, mã SKU..."
+            placeholder="Tìm kiếm theo tên sản phẩm, mã SKU (hỗ trợ không dấu)..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d5c3a]/20 font-medium"
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onBlur={() =>
+              setSearchTerm((prev) => prev.trim().replace(/\s+/g, " "))
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                setSearchTerm((prev) => prev.trim().replace(/\s+/g, " "));
+              }
+            }}
+            className="w-full pl-10 pr-9 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d5c3a]/20 font-medium"
           />
+          {searchTerm.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/60 transition cursor-pointer"
+              title="Xóa từ khóa tìm kiếm"
+            >
+              <XMarkIcon className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

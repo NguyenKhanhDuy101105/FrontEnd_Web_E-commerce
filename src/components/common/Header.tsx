@@ -25,10 +25,10 @@ export default function Header() {
                 <div className="relative w-8 h-8 md:w-10 md:h-10 bg-white rounded-xl p-0.5 border border-slate-100 shadow-sm">
                   <Image
                     src="/images/Logo.jpeg"
-                    alt="UrbanMart Logo"
+                    alt="Logo"
                     fill
-                    className="object-contain rounded-lg"
-                    priority
+                    sizes="(max-width: 768px) 40px, 100px"
+                    className="object-contain"
                   />
                 </div>
                 <span className="text-xl md:text-2xl font-black tracking-tight text-slate-800">

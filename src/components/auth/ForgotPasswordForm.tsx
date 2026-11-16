@@ -9,19 +9,28 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import axios from "axios";
 import { authService } from "@/src/services/customer/authService";
+import { showToast } from "@/src/utils/toast";
 import {
-  PhoneIcon,
+  EnvelopeIcon,
   ArrowRightIcon,
   CheckCircleIcon,
   ArrowLeftIcon,
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 
+const EMAIL_ALLOWED_CHARS_REGEX = /^[a-zA-Z0-9._%+-@]*$/;
+const EMAIL_STRICT_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
 const forgotSchema = yup.object().shape({
-  phone: yup
+  email: yup
     .string()
-    .required("Vui lòng nhập số điện thoại")
-    .matches(/(84|0[3|5|7|8|9])+([0-9]{8})\b/, "Số điện thoại không hợp lệ"),
+    .trim()
+    .required("Vui lòng nhập địa chỉ email")
+    .matches(
+      EMAIL_ALLOWED_CHARS_REGEX,
+      "Email chỉ được chứa chữ cái không dấu, số và các ký tự . _ % + - @",
+    )
+    .matches(EMAIL_STRICT_REGEX, "Địa chỉ email không hợp lệ"),
 });
 
 type ForgotFormData = yup.InferType<typeof forgotSchema>;
@@ -31,30 +40,45 @@ export default function ForgotPasswordForm() {
   const {
     register,
     handleSubmit,
+    setValue,
     control,
     formState: { errors, isSubmitting },
   } = useForm<ForgotFormData>({
     resolver: yupResolver(forgotSchema),
     mode: "onChange",
     defaultValues: {
-      phone: "",
+      email: "",
     },
   });
 
-  const currentPhoneVal = useWatch({
+  const currentEmailVal = useWatch({
     control,
-    name: "phone",
+    name: "email",
     defaultValue: "",
   });
 
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const sanitizedEmail = e.target.value.replace(/[^a-zA-Z0-9._%+-@]/g, "");
+    setValue("email", sanitizedEmail, { shouldValidate: true });
+  };
+
+  const preventSpaceKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === " ") {
+      e.preventDefault();
+    }
+  };
+
   const onSubmit = async (data: ForgotFormData) => {
+    const cleanEmail = data.email.trim();
     try {
       await authService.forgotPassword({
-        phone: data.phone,
+        email: cleanEmail,
       });
 
+      showToast.success("Mã xác thực OTP đã được gửi tới email của bạn!");
+
       router.push(
-        `/auth/reset_pass?phone=${encodeURIComponent(data.phone)}&type=reset_password`,
+        `/auth/reset_pass?email=${encodeURIComponent(cleanEmail)}&type=reset_password`,
       );
     } catch (error) {
       console.error("Lỗi khi gửi yêu cầu quên mật khẩu:", error);
@@ -66,7 +90,7 @@ export default function ForgotPasswordForm() {
         message = error.message;
       }
 
-      console.log(message);
+      showToast.error(message);
     }
   };
 
@@ -108,44 +132,46 @@ export default function ForgotPasswordForm() {
         </h2>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
         <div>
           <div className="flex justify-between items-center mb-1.5">
             <label className="block text-xs sm:text-sm font-semibold text-slate-700">
-              Số điện thoại đăng ký <span className="text-red-500">*</span>
+              Email đăng ký <span className="text-red-500">*</span>
             </label>
             <span className="text-xs text-slate-400 font-medium">
-              Định dạng 10 số
+              Định dạng email hợp lệ
             </span>
           </div>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-              <PhoneIcon className="w-4 h-4" />
+              <EnvelopeIcon className="w-4 h-4" />
             </div>
             <input
-              type="tel"
-              {...register("phone")}
-              placeholder="Nhập số điện thoại của bạn"
+              type="email"
+              onKeyDown={preventSpaceKeyDown}
+              {...register("email", {
+                onChange: handleEmailChange,
+              })}
+              placeholder="Nhập địa chỉ email của bạn"
               className={`w-full pl-11 pr-10 py-3 text-sm bg-slate-50/60 border rounded-2xl focus:outline-none focus:ring-2 focus:bg-white transition-all duration-200 text-slate-800 placeholder-slate-400 ${
-                errors.phone
+                errors.email
                   ? "border-red-400 focus:ring-red-400"
                   : "border-slate-200 focus:ring-emerald-600"
               }`}
             />
-            {currentPhoneVal && !errors.phone && (
+            {currentEmailVal && !errors.email && (
               <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-emerald-600">
                 <CheckCircleIcon className="w-5 h-5 fill-emerald-600 text-white" />
               </div>
             )}
           </div>
-          {errors.phone && (
+          {errors.email && (
             <p className="text-xs text-red-500 mt-1 font-medium animate-fadeIn">
-              {errors.phone.message}
+              {errors.email.message}
             </p>
           )}
           <p className="text-[11px] text-slate-400 mt-1.5">
-            * Mã xác nhận 6 số sẽ được gửi qua tin nhắn SMS tới số điện thoại
-            này.
+            * Mã xác nhận 6 số sẽ được gửi tới hộp thư email này.
           </p>
         </div>
 

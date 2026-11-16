@@ -13,6 +13,7 @@ export interface StatusCounts {
   pending: number;
   processing: number;
   shipping: number;
+  deliveredPending?: number;
   completed: number;
 }
 
@@ -27,6 +28,8 @@ export default function OrderTrackingWidget({
   activeGroup,
   onSelectGroup,
 }: OrderTrackingWidgetProps) {
+  const pendingConfirmCount = statusCounts.deliveredPending || 0;
+
   return (
     <div className="bg-white rounded-lg border border-slate-200/80 p-4 sm:p-5 shadow-xs space-y-4">
       <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -115,6 +118,14 @@ export default function OrderTrackingWidget({
               : "border-slate-100/80"
           }`}
         >
+          {pendingConfirmCount > 0 && (
+            <span
+              title="Đơn đã giao, chờ bạn xác nhận"
+              className="absolute -top-1.5 right-4 sm:right-6 bg-amber-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-2xs"
+            >
+              {pendingConfirmCount}
+            </span>
+          )}
           <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
             <CheckCircleIcon className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>

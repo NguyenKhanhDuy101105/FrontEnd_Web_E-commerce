@@ -32,7 +32,7 @@ export default function ProductSectionSlider({
   headerTextColor = "text-white",
   badgeBgColor = "bg-white",
   badgeTextColor = "text-orange-600",
-  onAddToCart, // 2. Nhận onAddToCart
+  onAddToCart,
 }: ProductSectionSliderProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 

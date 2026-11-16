@@ -11,6 +11,7 @@ import * as yup from "yup";
 import { authService } from "@/src/services/customer/authService";
 import axios from "axios";
 import { formatDate } from "@/src/lib/utils";
+import { showToast } from "@/src/utils/toast";
 import {
   PhoneIcon,
   UserIcon,
@@ -27,26 +28,74 @@ import {
 const registerSchema = yup.object().shape({
   fullName: yup
     .string()
+    .transform((value) => (value ? value.trim() : ""))
     .required("Vui lòng nhập họ và tên")
+    .test(
+      "single-space-between-words",
+      "Mỗi từ trong họ và tên chỉ được cách nhau bởi 1 khoảng trắng",
+      (value) => {
+        if (!value) return false;
+        return !/\s{2,}/.test(value);
+      },
+    )
+    .matches(
+      /^[\p{L}]+(?:\s[\p{L}]+)*$/u,
+      "Họ và tên chỉ bao gồm chữ cái và mỗi từ cách nhau 1 khoảng trắng",
+    )
     .min(2, "Họ và tên quá ngắn"),
   phone: yup
     .string()
+    .trim()
     .required("Vui lòng nhập số điện thoại")
-    .matches(/(84|0[3|5|7|8|9])+([0-9]{8})\b/, "Số điện thoại không hợp lệ"),
+    .matches(/^\d+$/, "Số điện thoại chỉ được chứa chữ số")
+    .matches(/^(0[3|5|7|8|9])+([0-9]{8})$/, "Số điện thoại không hợp lệ"),
   email: yup
     .string()
+    .trim()
     .required("Vui lòng nhập email")
-    .email("Địa chỉ email không hợp lệ"),
-  dob: yup.string().required("Vui lòng chọn ngày sinh"),
+    .matches(
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+      "Địa chỉ email không hợp lệ",
+    ),
+  dob: yup
+    .string()
+    .required("Vui lòng chọn ngày sinh")
+    .test(
+      "not-in-future",
+      "Ngày sinh không được lớn hơn ngày hiện tại",
+      (value) => {
+        if (!value) return false;
+        const selectedDate = new Date(value);
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        return selectedDate <= today;
+      },
+    ),
   gender: yup.string().required("Vui lòng chọn giới tính"),
   password: yup
     .string()
-    .required("Vui lòng nhập mật khẩu")
-    .min(8, "Mật khẩu tối thiểu 8 ký tự"),
+    .test("required-no-only-spaces", "Vui lòng nhập mật khẩu", (value) =>
+      Boolean(value && value.trim().length > 0),
+    )
+    .test(
+      "no-spaces",
+      "Mật khẩu không được chứa khoảng trắng",
+      (value) => !value || !/\s/.test(value),
+    )
+    .min(8, "Mật khẩu tối thiểu 8 ký tự")
+    .required("Vui lòng nhập mật khẩu"),
   confirmPassword: yup
     .string()
     .required("Vui lòng xác nhận mật khẩu")
+    .test(
+      "no-spaces",
+      "Mật khẩu xác nhận không được chứa khoảng trắng",
+      (value) => !value || !/\s/.test(value),
+    )
     .oneOf([yup.ref("password")], "Mật khẩu xác nhận không trùng khớp"),
+  acceptTerms: yup
+    .boolean()
+    .oneOf([true], "Bạn cần đồng ý với Chính sách bảo mật để đăng ký"),
 });
 
 type RegisterFormData = yup.InferType<typeof registerSchema>;
@@ -55,11 +104,13 @@ export default function RegisterForm() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [apiError, setApiError] = useState<string>("");
+
+  const todayStr = new Date().toISOString().split("T")[0];
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
     resolver: yupResolver(registerSchema),
@@ -69,12 +120,39 @@ export default function RegisterForm() {
     },
   });
 
+  const handleFullNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleanedValue = e.target.value.replace(/^\s+/, "");
+    setValue("fullName", cleanedValue, { shouldValidate: true });
+  };
+
+  const handleFullNameBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const trimmedValue = e.target.value.trim();
+    setValue("fullName", trimmedValue, { shouldValidate: true });
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const numericOnly = e.target.value.replace(/\D/g, "");
+    setValue("phone", numericOnly, { shouldValidate: true });
+  };
+
+  const handlePasswordChange = (
+    field: "password" | "confirmPassword",
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const noSpacesValue = e.target.value.replace(/\s+/g, "");
+    setValue(field, noSpacesValue, { shouldValidate: true });
+  };
+
+  const preventSpaceKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === " ") {
+      e.preventDefault();
+    }
+  };
+
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      setApiError("");
-
       const payload = {
-        fullName: data.fullName,
+        fullName: data.fullName.trim(),
         phone: data.phone,
         email: data.email,
         password: data.password,
@@ -85,7 +163,8 @@ export default function RegisterForm() {
 
       await authService.register(payload);
 
-      router.push(`/auth/otp_verify?phone=${encodeURIComponent(data.phone)}`);
+      showToast.success("Mã OTP đã được gửi đến email của bạn!");
+      router.push(`/auth/otp_verify?email=${encodeURIComponent(data.email)}`);
     } catch (error) {
       console.error("Lỗi đăng ký:", error);
 
@@ -97,7 +176,7 @@ export default function RegisterForm() {
         message = error.message;
       }
 
-      setApiError(message);
+      showToast.error(message);
     }
   };
 
@@ -154,7 +233,10 @@ export default function RegisterForm() {
             </div>
             <input
               type="text"
-              {...register("fullName")}
+              {...register("fullName", {
+                onChange: handleFullNameChange,
+                onBlur: handleFullNameBlur,
+              })}
               placeholder="Nhập họ và tên đầy đủ"
               className={`w-full pl-11 pr-4 py-3 text-sm bg-slate-50/60 border rounded-2xl focus:outline-none focus:ring-2 focus:bg-white transition-all duration-200 text-slate-800 placeholder-slate-400 ${
                 errors.fullName
@@ -180,7 +262,11 @@ export default function RegisterForm() {
             </div>
             <input
               type="tel"
-              {...register("phone")}
+              inputMode="numeric"
+              maxLength={10}
+              {...register("phone", {
+                onChange: handlePhoneChange,
+              })}
               placeholder="Nhập số điện thoại"
               className={`w-full pl-11 pr-4 py-3 text-sm bg-slate-50/60 border rounded-2xl focus:outline-none focus:ring-2 focus:bg-white transition-all duration-200 text-slate-800 placeholder-slate-400 ${
                 errors.phone
@@ -233,8 +319,13 @@ export default function RegisterForm() {
               </div>
               <input
                 type="date"
+                max={todayStr}
                 {...register("dob")}
-                className="w-full pl-10 pr-3 py-3 text-xs sm:text-sm bg-slate-50/60 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all duration-200 text-slate-800"
+                className={`w-full pl-10 pr-3 py-3 text-xs sm:text-sm bg-slate-50/60 border rounded-2xl focus:outline-none focus:ring-2 focus:bg-white transition-all duration-200 text-slate-800 ${
+                  errors.dob
+                    ? "border-red-400 focus:ring-red-400"
+                    : "border-slate-200 focus:ring-emerald-600"
+                }`}
               />
             </div>
             {errors.dob && (
@@ -274,7 +365,10 @@ export default function RegisterForm() {
             </div>
             <input
               type={showPassword ? "text" : "password"}
-              {...register("password")}
+              onKeyDown={preventSpaceKeyDown}
+              {...register("password", {
+                onChange: (e) => handlePasswordChange("password", e),
+              })}
               placeholder="Tối thiểu 8 ký tự"
               className={`w-full pl-11 pr-11 py-3 text-sm bg-slate-50/60 border rounded-2xl focus:outline-none focus:ring-2 focus:bg-white transition-all duration-200 text-slate-800 placeholder-slate-400 ${
                 errors.password
@@ -311,7 +405,10 @@ export default function RegisterForm() {
             </div>
             <input
               type={showConfirmPassword ? "text" : "password"}
-              {...register("confirmPassword")}
+              onKeyDown={preventSpaceKeyDown}
+              {...register("confirmPassword", {
+                onChange: (e) => handlePasswordChange("confirmPassword", e),
+              })}
               placeholder="Nhập lại mật khẩu"
               className={`w-full pl-11 pr-11 py-3 text-sm bg-slate-50/60 border rounded-2xl focus:outline-none focus:ring-2 focus:bg-white transition-all duration-200 text-slate-800 placeholder-slate-400 ${
                 errors.confirmPassword
@@ -338,23 +435,36 @@ export default function RegisterForm() {
           )}
         </div>
 
-        <p className="text-xs text-slate-500 pt-2 leading-relaxed">
-          Bằng việc bấm đăng ký, bạn đồng ý với{" "}
-          <Link
-            href="/terms"
-            className="text-slate-800 font-semibold underline hover:text-emerald-700"
-          >
-            Điều khoản dịch vụ
-          </Link>{" "}
-          &{" "}
-          <Link
-            href="/privacy"
-            className="text-slate-800 font-semibold underline hover:text-emerald-700"
-          >
-            Chính sách bảo mật
-          </Link>{" "}
-          của UrbanMart.
-        </p>
+        <div className="space-y-1.5 pt-1">
+          <div className="flex items-start space-x-2.5">
+            <input
+              type="checkbox"
+              id="acceptTerms"
+              {...register("acceptTerms")}
+              className="mt-1 w-4 h-4 text-[#0d5c3a] bg-slate-50 border-slate-300 rounded focus:ring-0 focus:outline-none cursor-pointer shrink-0"
+            />
+            <label
+              htmlFor="acceptTerms"
+              className="text-xs sm:text-sm text-slate-600 leading-relaxed text-justify cursor-pointer select-none"
+            >
+              Bằng việc đánh dấu vào ô này, Tôi xác nhận đã đọc và đồng ý với{" "}
+              <Link
+                href="/privacy-policy"
+                target="_blank"
+                className="font-semibold text-emerald-700 hover:underline inline-flex items-center gap-0.5"
+              >
+                Chính sách bảo mật
+              </Link>{" "}
+              của UrbanMart, bao gồm quyền thu thập, sử dụng và tiết lộ dữ liệu
+              cá nhân của tôi theo pháp luật quy định.
+            </label>
+          </div>
+          {errors.acceptTerms && (
+            <p className="text-xs text-red-500 font-medium pl-6 animate-fadeIn">
+              {errors.acceptTerms.message}
+            </p>
+          )}
+        </div>
 
         <motion.button
           whileHover={{ scale: 1.005 }}
@@ -363,8 +473,14 @@ export default function RegisterForm() {
           disabled={isSubmitting}
           className="w-full py-3.5 px-4 bg-[#0d5c3a] hover:bg-[#09472d] text-white font-bold text-sm sm:text-base rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-70 mt-3"
         >
-          <span>Đăng ký tài khoản</span>
-          <ArrowRightIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+          {isSubmitting ? (
+            <ArrowPathIcon className="w-5 h-5 animate-spin" />
+          ) : (
+            <>
+              <span>Đăng ký tài khoản</span>
+              <ArrowRightIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+            </>
+          )}
         </motion.button>
       </form>
 

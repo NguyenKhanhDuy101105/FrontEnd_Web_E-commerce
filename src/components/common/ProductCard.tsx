@@ -242,6 +242,7 @@ export default function ProductCard({
           <Image
             src={getValidImageUrl(image)}
             alt={title || "Product image"}
+            loading="lazy"
             fill
             className={`object-contain p-1 transition-transform duration-300 ease-out ${
               isOutOfStock ? "opacity-75" : "group-hover:scale-105"

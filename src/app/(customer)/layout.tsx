@@ -5,6 +5,7 @@ import Header from "@/src/components/common/Header";
 import Footer from "@/src/components/common/Footer";
 import ChatWidget from "@/src/components/common/ChatWidget";
 import { useAuthGuard } from "@/src/hooks/useAuthGuard";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
 export default function CustomerLayout({
   children,
@@ -13,16 +14,22 @@ export default function CustomerLayout({
 }) {
   useAuthGuard();
 
+  const googleClientId =
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+    "411536265408-cv9nj49gbap6o5e5d02fq2un7qprcd51.apps.googleusercontent.com";
+
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800 relative">
-      <Header />
+    <GoogleOAuthProvider clientId={googleClientId}>
+      <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800 relative">
+        <Header />
 
-      <main className="flex-1 pb-2 md:pb-0">{children}</main>
+        <main className="flex-1 pb-2 md:pb-0">{children}</main>
 
-      <div className="hidden md:block">
-        <Footer />
-        <ChatWidget />
+        <div className="hidden md:block">
+          <Footer />
+          <ChatWidget />
+        </div>
       </div>
-    </div>
+    </GoogleOAuthProvider>
   );
 }

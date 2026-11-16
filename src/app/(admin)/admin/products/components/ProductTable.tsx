@@ -8,9 +8,11 @@ import {
   PencilSquareIcon,
   TrashIcon,
   ArrowPathIcon,
+  TagIcon,
 } from "@heroicons/react/24/outline";
 import { CategoryItem } from "@/src/services/customer/categoriesService";
 import { adminProductService } from "@/src/services/admin/adminProductService";
+import UpdateProductFoodTagsModal from "./UpdateProductFoodTagsModal";
 
 export interface ProductItem {
   id: string;
@@ -52,6 +54,8 @@ function CategoryGroupSection({
   onDelete,
   onRestore,
   onAddProductToCategory,
+  onOpenTagModal,
+  onProductMatchStateChange,
 }: {
   targetCategory: CategoryItem;
   displayName: string;
@@ -61,6 +65,8 @@ function CategoryGroupSection({
   onDelete: (item: ProductItem) => void;
   onRestore: (item: ProductItem) => void;
   onAddProductToCategory: (categoryId: string) => void;
+  onOpenTagModal: (item: ProductItem) => void;
+  onProductMatchStateChange?: (catId: string, hasMatch: boolean) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [products, setProducts] = useState<ProductItem[]>([]);
@@ -98,19 +104,34 @@ function CategoryGroupSection({
     fetchProductsByCategory();
   }, [fetchProductsByCategory, refreshKey]);
 
-  useEffect(() => {
-    if (searchTerm.trim().length > 0) {
-      setIsExpanded(true);
-    }
-  }, [searchTerm]);
-
   const filteredProducts = products.filter((p) => {
     if (!searchTerm.trim()) return true;
     const term = searchTerm.toLowerCase();
     return (
-      p.name.toLowerCase().includes(term) || p.sku.toLowerCase().includes(term)
+      p.name.toLowerCase().includes(term) ||
+      (p.sku && p.sku.toLowerCase().includes(term))
     );
   });
+
+  const hasMatch = filteredProducts.length > 0;
+
+  useEffect(() => {
+    if (onProductMatchStateChange) {
+      onProductMatchStateChange(targetCategory.id, hasMatch);
+    }
+  }, [hasMatch, targetCategory.id, onProductMatchStateChange]);
+
+  useEffect(() => {
+    if (searchTerm.trim().length > 0) {
+      setIsExpanded(hasMatch);
+    } else {
+      setIsExpanded(false);
+    }
+  }, [searchTerm, hasMatch]);
+
+  if (searchTerm.trim() !== "" && !hasMatch && !loading) {
+    return null;
+  }
 
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
@@ -143,12 +164,14 @@ function CategoryGroupSection({
             ) : (
               <span
                 className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${
-                  totalCount > 0
+                  filteredProducts.length > 0
                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
                     : "bg-rose-50 text-rose-600 border border-rose-200/60"
                 }`}
               >
-                {totalCount} sản phẩm
+                {searchTerm.trim()
+                  ? `${filteredProducts.length} kết quả`
+                  : `${totalCount} sản phẩm`}
               </span>
             )}
           </div>
@@ -197,7 +220,9 @@ function CategoryGroupSection({
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {filteredProducts.map((p) => {
-                    const isInactive = p.status === "INACTIVE";
+                    const isInactive =
+                      p.status?.toUpperCase() === "DISCONTINUED" ||
+                      p.status?.toUpperCase() === "INACTIVE";
                     return (
                       <tr
                         key={p.id}
@@ -251,12 +276,21 @@ function CategoryGroupSection({
                                 : "bg-emerald-50 text-emerald-600"
                             }`}
                           >
-                            {isInactive ? "Đã dừng" : "Đang bán"}
+                            {isInactive ? "Đã ngừng bán" : "Đang bán"}
                           </span>
                         </td>
 
                         <td className="py-2.5 px-2 sm:px-3 text-right">
                           <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => onOpenTagModal(p)}
+                              className="p-1.5 text-slate-400 hover:text-amber-600 transition rounded-lg hover:bg-slate-100 cursor-pointer"
+                              title="Gán nhãn thực phẩm"
+                            >
+                              <TagIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            </button>
+
                             {isInactive ? (
                               <button
                                 onClick={() => onRestore(p)}
@@ -308,11 +342,22 @@ export default function ProductTable({
   onRestore,
   onAddProductToCategory,
 }: ProductTableProps) {
+  const [matchedMap, setMatchedMap] = useState<Record<string, boolean>>({});
+  const [selectedTagProduct, setSelectedTagProduct] =
+    useState<ProductItem | null>(null);
+
   const selectedL1 = categories.find((c) => c.id === selectedL1Id);
+
+  const handleMatchChange = useCallback((catId: string, hasMatch: boolean) => {
+    setMatchedMap((prev) => {
+      if (prev[catId] === hasMatch) return prev;
+      return { ...prev, [catId]: hasMatch };
+    });
+  }, []);
 
   if (!selectedL1 || !selectedL1.children || selectedL1.children.length === 0) {
     return (
-      <div className="py-12 text-center text-slate-400 text-xs font-medium bg-white rounded-xl border border-slate-200/80">
+      <div className="py-12 text-center text-slate-400 text-xs font-medium bg-white rounded-xl border border-slate-200/80 shadow-xs">
         Không có danh mục con nào trong nhóm này.
       </div>
     );
@@ -336,6 +381,10 @@ export default function ProductTable({
     }
   });
 
+  const hasAnyMatchInSelectedL1 =
+    !searchTerm.trim() ||
+    targetGroups.some(({ targetCategory }) => matchedMap[targetCategory.id]);
+
   return (
     <div className="space-y-3.5">
       {targetGroups.map(({ targetCategory, displayName }) => (
@@ -349,8 +398,28 @@ export default function ProductTable({
           onDelete={onDelete}
           onRestore={onRestore}
           onAddProductToCategory={onAddProductToCategory}
+          onOpenTagModal={(p) => setSelectedTagProduct(p)}
+          onProductMatchStateChange={handleMatchChange}
         />
       ))}
+
+      {searchTerm.trim() !== "" && !hasAnyMatchInSelectedL1 && (
+        <div className="bg-white p-8 rounded-xl border border-slate-200/80 shadow-xs text-center space-y-2">
+          <p className="text-xs font-bold text-slate-700">
+            Không có sản phẩm nào phù hợp trong danh mục
+          </p>
+          <p className="text-[11px] text-slate-400">
+            Vui lòng chọn danh mục khác hoặc thử từ khóa tìm kiếm khác.
+          </p>
+        </div>
+      )}
+
+      {selectedTagProduct && (
+        <UpdateProductFoodTagsModal
+          product={selectedTagProduct}
+          onClose={() => setSelectedTagProduct(null)}
+        />
+      )}
     </div>
   );
 }

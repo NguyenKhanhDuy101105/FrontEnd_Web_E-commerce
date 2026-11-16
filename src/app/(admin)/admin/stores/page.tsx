@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import BranchHeader from "./components/BranchHeader";
 import BranchListTab from "./components/BranchListTab";
 import BranchMonitoringTab from "./components/BranchMonitoringTab";
@@ -13,51 +13,48 @@ import {
 } from "@/src/services/admin/adminBranchService";
 import { showToast } from "@/src/utils/toast";
 
+const normalizeText = (text: string) =>
+  text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .trim();
+
 export default function BranchManagementPage() {
   const [activeTab, setActiveTab] = useState<"list" | "monitoring">("list");
 
-  // States Modal Thêm / Sửa
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<AdminBranchItem | null>(
     null,
   );
 
-  // States Modal Xóa Chi Nhánh
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [branchToDelete, setBranchToDelete] = useState<AdminBranchItem | null>(
     null,
   );
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // States Dữ liệu & Bảng
-  const [branches, setBranches] = useState<AdminBranchItem[]>([]);
+  const [allBranches, setAllBranches] = useState<AdminBranchItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // States Bộ lọc & Phân trang
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
 
-  // Call API Lấy danh sách Chi nhánh
-  const fetchBranches = useCallback(async () => {
+  const reloadBranches = useCallback(async () => {
     setLoading(true);
     try {
       const res = await adminBranchService.getBranches({
         page,
-        size: 20,
-        search: searchTerm || undefined,
+        size: 100,
       });
 
       if (res.status === "success" && res.data?.content) {
-        let list = res.data.content;
-        if (statusFilter) {
-          list = list.filter((b) => b.status === statusFilter);
-        }
-        setBranches(list);
-        setTotalPages(res.data.totalPages || 0);
+        setAllBranches(res.data.content);
       } else {
-        setBranches([]);
+        setAllBranches([]);
       }
     } catch (error) {
       console.error("Lỗi tải danh sách chi nhánh:", error);
@@ -65,13 +62,61 @@ export default function BranchManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, searchTerm, statusFilter]);
+  }, [page]);
 
   useEffect(() => {
-    fetchBranches();
-  }, [fetchBranches]);
+    let isMounted = true;
 
-  // Thêm mới hoặc Cập nhật chi nhánh
+    const loadInitialBranches = async () => {
+      try {
+        const res = await adminBranchService.getBranches({
+          page,
+          size: 100,
+        });
+
+        if (!isMounted) return;
+
+        if (res.status === "success" && res.data?.content) {
+          setAllBranches(res.data.content);
+        } else {
+          setAllBranches([]);
+        }
+      } catch (error) {
+        if (!isMounted) return;
+        console.error("Lỗi tải danh sách chi nhánh:", error);
+        showToast.error("Không thể tải danh sách chi nhánh!");
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadInitialBranches();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [page]);
+
+  const filteredBranches = useMemo(() => {
+    const normalizedKeyword = normalizeText(searchTerm);
+    const keywordTokens = normalizedKeyword.split(/\s+/).filter(Boolean);
+
+    return allBranches.filter((branch) => {
+      const matchesStatus = !statusFilter || branch.status === statusFilter;
+      if (!matchesStatus) return false;
+
+      if (keywordTokens.length === 0) return true;
+
+      const searchableText = normalizeText(
+        [branch.name, branch.address, branch.phone].filter(Boolean).join(" "),
+      );
+
+      return keywordTokens.every((token) => searchableText.includes(token));
+    });
+  }, [allBranches, searchTerm, statusFilter]);
+
   const handleSaveBranch = async (payload: SaveAdminBranchRequest) => {
     try {
       if (selectedBranch) {
@@ -90,20 +135,18 @@ export default function BranchManagementPage() {
       }
       setIsModalOpen(false);
       setSelectedBranch(null);
-      fetchBranches();
+      await reloadBranches();
     } catch (error) {
       console.error("Lỗi lưu chi nhánh:", error);
       showToast.error("Lưu thông tin chi nhánh thất bại!");
     }
   };
 
-  // Mở Modal Xóa từ danh sách
   const handleOpenDeleteModal = (branch: AdminBranchItem) => {
     setBranchToDelete(branch);
     setIsDeleteModalOpen(true);
   };
 
-  // Thực thi gọi API Xóa khi người dùng nhấn xác nhận trong Modal
   const handleConfirmDelete = async (branchId: string) => {
     setDeleteLoading(true);
     try {
@@ -112,7 +155,7 @@ export default function BranchManagementPage() {
         showToast.success("Xóa chi nhánh thành công!");
         setIsDeleteModalOpen(false);
         setBranchToDelete(null);
-        fetchBranches();
+        await reloadBranches();
       }
     } catch (error) {
       console.error("Lỗi xóa chi nhánh:", error);
@@ -130,6 +173,16 @@ export default function BranchManagementPage() {
   const handleOpenEditModal = (branch: AdminBranchItem) => {
     setSelectedBranch(branch);
     setIsModalOpen(true);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setPage(0);
+  };
+
+  const handleClearSearch = () => {
+    setSearchTerm("");
+    setPage(0);
   };
 
   return (
@@ -166,12 +219,16 @@ export default function BranchManagementPage() {
 
       {activeTab === "list" ? (
         <BranchListTab
-          branches={branches}
+          branches={filteredBranches}
           loading={loading}
           searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
+          onSearchChange={handleSearchChange}
+          onClearSearch={handleClearSearch}
           statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
+          onStatusFilterChange={(value) => {
+            setStatusFilter(value);
+            setPage(0);
+          }}
           onEditBranch={handleOpenEditModal}
           onDeleteBranch={handleOpenDeleteModal}
         />
@@ -186,6 +243,7 @@ export default function BranchManagementPage() {
           setSelectedBranch(null);
         }}
         initialData={selectedBranch}
+        existingBranches={allBranches}
         onSave={handleSaveBranch}
       />
 

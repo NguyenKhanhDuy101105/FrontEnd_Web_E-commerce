@@ -35,7 +35,6 @@ export default function BranchOrderManagementPage() {
 
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [isExpressOnly, setIsExpressOnly] = useState<boolean>(false);
   const [page, setPage] = useState<number>(0);
 
   const [orders, setOrders] = useState<BranchOrderSummary[]>([]);
@@ -44,6 +43,7 @@ export default function BranchOrderManagementPage() {
   const [totalElements, setTotalElements] = useState<number>(0);
 
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [totalRevenue, setTotalRevenue] = useState<number>(0);
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
@@ -60,7 +60,10 @@ export default function BranchOrderManagementPage() {
 
       const results = await Promise.allSettled(
         STATUSES.map((st) =>
-          branchOrderService.getBranchOrders(branchId, { status: st, size: 1 }),
+          branchOrderService.getBranchOrders(branchId, {
+            status: st,
+            size: st === "COMPLETED" ? 100 : 1,
+          }),
         ),
       );
 
@@ -68,8 +71,19 @@ export default function BranchOrderManagementPage() {
         const res = results[index];
         if (res.status === "fulfilled" && res.value?.data) {
           countsMap[st] = res.value.data.totalElements || 0;
+
+          if (st === "COMPLETED") {
+            const completedOrders = res.value.data.content || [];
+            const revenue = completedOrders
+              .filter((item) => item.status === "COMPLETED")
+              .reduce((sum, item) => sum + (item.totalAmount || 0), 0);
+            setTotalRevenue(revenue);
+          }
         } else {
           countsMap[st] = 0;
+          if (st === "COMPLETED") {
+            setTotalRevenue(0);
+          }
         }
       });
 
@@ -83,11 +97,12 @@ export default function BranchOrderManagementPage() {
     if (!branchId) return;
     setLoading(true);
     try {
+      const trimmedSearch = searchQuery.trim();
       const res = await branchOrderService.getBranchOrders(branchId, {
         status:
           activeTab === "ALL" ? undefined : (activeTab as BranchOrderStatus),
-        page,
-        size: 15,
+        page: trimmedSearch ? 0 : page,
+        size: trimmedSearch ? 100 : 15,
       });
 
       if (res?.data) {
@@ -101,7 +116,7 @@ export default function BranchOrderManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [branchId, activeTab, page]);
+  }, [branchId, activeTab, page, searchQuery]);
 
   useEffect(() => {
     if (branchId) {
@@ -110,9 +125,15 @@ export default function BranchOrderManagementPage() {
     }
   }, [branchId, fetchOrders, fetchStatusCounts]);
 
-  const totalRevenue = useMemo(() => {
-    return orders.reduce((sum, item) => sum + (item.totalAmount || 0), 0);
-  }, [orders]);
+  const filteredOrders = useMemo(() => {
+    const keyword = searchQuery.trim().toLowerCase();
+    if (!keyword) return orders;
+    return orders.filter((order) =>
+      (order.orderCode || "").toLowerCase().includes(keyword),
+    );
+  }, [orders, searchQuery]);
+
+  const isSearching = searchQuery.trim().length > 0;
 
   return (
     <div className="p-4 sm:p-6 bg-slate-50 min-h-screen text-slate-800 space-y-6">
@@ -135,19 +156,20 @@ export default function BranchOrderManagementPage() {
             setPage(0);
           }}
           searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          isExpressOnly={isExpressOnly}
-          onToggleExpress={() => setIsExpressOnly(!isExpressOnly)}
+          onSearchChange={(val) => {
+            setSearchQuery(val);
+            setPage(0);
+          }}
           statusCounts={statusCounts}
         />
 
         <BranchOrderTable
           branchId={branchId}
-          orders={orders}
+          orders={filteredOrders}
           loading={loading}
-          page={page}
-          totalPages={totalPages}
-          totalElements={totalElements}
+          page={isSearching ? 0 : page}
+          totalPages={isSearching ? 1 : totalPages}
+          totalElements={isSearching ? filteredOrders.length : totalElements}
           onPageChange={setPage}
           onSelectOrder={(id) => {
             setSelectedOrderId(id);

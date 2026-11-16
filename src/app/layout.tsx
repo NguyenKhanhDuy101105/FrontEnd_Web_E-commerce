@@ -6,6 +6,7 @@ import { BranchProvider } from "@/src/context/BranchContext";
 import { WishlistProvider } from "@/src/context/WishlistContext";
 import { CartProvider } from "@/src/context/CartContext";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import { PurchasedOrdersProvider } from "@/src/context/PurchasedOrdersContext";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin", "vietnamese"],
@@ -29,18 +30,20 @@ export default function RootLayout({
         <BranchProvider>
           <WishlistProvider>
             <CartProvider>
-              <ToastContainer
-                position="top-right"
-                autoClose={3000}
-                limit={3}
-                hideProgressBar={true}
-                closeOnClick
-                pauseOnHover
-                theme="light"
-                toastClassName="!bg-white !rounded-lg !shadow-xl !border !border-slate-100 !p-4 !font-sans"
-              />
+              <PurchasedOrdersProvider>
+                <ToastContainer
+                  position="top-right"
+                  autoClose={3000}
+                  limit={3}
+                  hideProgressBar={true}
+                  closeOnClick
+                  pauseOnHover
+                  theme="light"
+                  toastClassName="!bg-white !rounded-lg !shadow-xl !border !border-slate-100 !p-4 !font-sans"
+                />
 
-              {children}
+                {children}
+              </PurchasedOrdersProvider>
             </CartProvider>
           </WishlistProvider>
         </BranchProvider>

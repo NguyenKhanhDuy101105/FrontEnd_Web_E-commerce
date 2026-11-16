@@ -10,6 +10,7 @@ import { useForm, useWatch } from "react-hook-form";
 import * as yup from "yup";
 import axios from "axios";
 import { authService } from "@/src/services/customer/authService";
+import { showToast } from "@/src/utils/toast";
 import {
   ArrowLeftIcon,
   LockClosedIcon,
@@ -24,26 +25,37 @@ const resetSchema = yup.object().shape({
   password: yup
     .string()
     .required("Vui lòng nhập mật khẩu mới")
+    .test(
+      "no-spaces",
+      "Mật khẩu không được chứa ký tự khoảng trắng",
+      (value) => !value || !/\s/.test(value),
+    )
     .min(8, "Mật khẩu tối thiểu 8 ký tự"),
   confirmPassword: yup
     .string()
     .required("Vui lòng xác nhận mật khẩu mới")
+    .test(
+      "no-spaces",
+      "Mật khẩu xác nhận không được chứa ký tự khoảng trắng",
+      (value) => !value || !/\s/.test(value),
+    )
     .oneOf([yup.ref("password")], "Mật khẩu xác nhận không trùng khớp"),
 });
 
 type ResetFormData = yup.InferType<typeof resetSchema>;
 
 interface ResetPasswordFormProps {
-  phone?: string;
+  email?: string;
 }
 
 export default function ResetPasswordForm({
-  phone: propPhone,
+  email: emailPhone,
 }: ResetPasswordFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const phoneParam = propPhone || searchParams.get("phone") || "090***4567";
+  const emailParam =
+    emailPhone || searchParams.get("email") || "nguyenvana@gmail.com";
 
   const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -51,13 +63,14 @@ export default function ResetPasswordForm({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [countdown, setCountdown] = useState<number>(0);
+  const [countdown, setCountdown] = useState<number>(59);
   const [otpError, setOtpError] = useState<string>("");
   const [apiError, setApiError] = useState<string>("");
 
   const {
     register,
     handleSubmit,
+    setValue,
     control,
     formState: { errors, isSubmitting },
   } = useForm<ResetFormData>({
@@ -98,34 +111,109 @@ export default function ResetPasswordForm({
     }
   }, [countdown]);
 
+  const handlePasswordChange = (
+    field: "password" | "confirmPassword",
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const noSpacesValue = e.target.value.replace(/\s+/g, "");
+    setValue(field, noSpacesValue, { shouldValidate: true });
+  };
+
+  const preventSpaceKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === " ") {
+      e.preventDefault();
+    }
+  };
+
   const handleOtpChange = (index: number, value: string) => {
-    if (isNaN(Number(value))) return;
+    const digitsOnly = value.replace(/\D/g, "");
+    if (!digitsOnly) {
+      if (value === "") {
+        const newOtp = [...otp];
+        newOtp[index] = "";
+        setOtp(newOtp);
+      }
+      return;
+    }
+
     const newOtp = [...otp];
-    newOtp[index] = value.substring(value.length - 1);
+    const chars = digitsOnly.slice(0, 6 - index).split("");
+
+    chars.forEach((char, offset) => {
+      newOtp[index + offset] = char;
+    });
+
     setOtp(newOtp);
     setOtpError("");
     setApiError("");
 
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
+    const nextIndex = Math.min(index + chars.length, 5);
+    requestAnimationFrame(() => {
+      inputRefs.current[nextIndex]?.focus();
+    });
   };
 
   const handleOtpKeyDown = (
     index: number,
     e: React.KeyboardEvent<HTMLInputElement>,
   ) => {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      const newOtp = [...otp];
+      if (newOtp[index]) {
+        newOtp[index] = "";
+        setOtp(newOtp);
+      } else if (index > 0) {
+        newOtp[index - 1] = "";
+        setOtp(newOtp);
+        inputRefs.current[index - 1]?.focus();
+      }
+      return;
+    }
+
+    if (e.key === "ArrowLeft" && index > 0) {
+      e.preventDefault();
       inputRefs.current[index - 1]?.focus();
+      return;
+    }
+
+    if (e.key === "ArrowRight" && index < 5) {
+      e.preventDefault();
+      inputRefs.current[index + 1]?.focus();
+      return;
+    }
+
+    if (/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+      const newOtp = [...otp];
+      newOtp[index] = e.key;
+      setOtp(newOtp);
+      setOtpError("");
+      setApiError("");
+
+      if (index < 5) {
+        inputRefs.current[index + 1]?.focus();
+      }
     }
   };
 
   const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData("text").trim();
-    if (/^\d{6}$/.test(pastedData)) {
-      setOtp(pastedData.split(""));
-      inputRefs.current[5]?.focus();
+    const pastedData = e.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, 6);
+
+    if (pastedData.length > 0) {
+      const newOtp = Array(6).fill("");
+      pastedData.split("").forEach((char, idx) => {
+        newOtp[idx] = char;
+      });
+      setOtp(newOtp);
+      setOtpError("");
+      setApiError("");
+      const focusIdx = Math.min(pastedData.length, 5);
+      inputRefs.current[focusIdx]?.focus();
     }
   };
 
@@ -136,13 +224,13 @@ export default function ResetPasswordForm({
       setOtpError("");
       setApiError("");
 
-      await authService.resendOtp({ phone: phoneParam });
+      await authService.forgotPassword({ email: emailParam });
 
+      showToast.success("Mã OTP mới đã được gửi tới email của bạn!");
       setCountdown(60);
       setOtp(Array(6).fill(""));
       inputRefs.current[0]?.focus();
     } catch (error) {
-      console.error("Lỗi gửi lại OTP:", error);
       let message = "Không thể gửi lại mã OTP. Vui lòng thử lại sau!";
       if (axios.isAxiosError(error)) {
         message = error.response?.data?.message || message;
@@ -150,13 +238,16 @@ export default function ResetPasswordForm({
         message = error.message;
       }
       setOtpError(message);
+      showToast.error(message);
     }
   };
 
   const onSubmit = async (data: ResetFormData) => {
     const fullOtp = otp.join("");
     if (fullOtp.length < 6) {
-      setOtpError("Vui lòng nhập đủ 6 chữ số mã OTP");
+      const msg = "Vui lòng nhập đủ 6 chữ số mã OTP";
+      setOtpError(msg);
+      showToast.error(msg);
       return;
     }
 
@@ -165,15 +256,14 @@ export default function ResetPasswordForm({
       setOtpError("");
 
       await authService.resetPassword({
-        phone: phoneParam,
+        email: emailParam,
         otp: fullOtp,
         newPassword: data.password,
       });
 
+      showToast.success("Đặt lại mật khẩu thành công!");
       router.push("/auth/login?reset=success");
     } catch (error) {
-      console.error("Lỗi đặt lại mật khẩu:", error);
-
       let message = "Mã OTP không hợp lệ hoặc đã hết hạn. Vui lòng thử lại!";
       if (axios.isAxiosError(error)) {
         message = error.response?.data?.message || message;
@@ -182,6 +272,7 @@ export default function ResetPasswordForm({
       }
 
       setApiError(message);
+      showToast.error(message);
     }
   };
 
@@ -190,7 +281,7 @@ export default function ResetPasswordForm({
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="w-full bg-white p-7 sm:p-10 rounded-3xl border border-slate-100 shadow-xl max-w-140 mx-auto"
+      className="w-full bg-white p-7 sm:p-10 mb-18 sm:mb-0 rounded-3xl border border-slate-100 shadow-xl max-w-140 mx-auto"
     >
       <div className="flex items-center justify-between mb-8">
         <button
@@ -219,19 +310,14 @@ export default function ResetPasswordForm({
       </div>
 
       <div className="mb-7 text-left">
-        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-center">
           Xác thực mã OTP
         </h2>
         <p className="text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed">
-          Mã xác thực gồm 6 số đã gửi tới{" "}
-          <strong className="text-slate-800 font-semibold">{phoneParam}</strong>{" "}
-          <button
-            type="button"
-            onClick={() => router.push("/auth/forgot_pass")}
-            className="text-[#0d5c3a] font-semibold hover:underline cursor-pointer ml-1"
-          >
-            Đổi số khác
-          </button>
+          Mã xác thực gồm 6 số đã gửi tới email:{" "}
+          <strong className="text-slate-800 font-semibold">
+            {emailParam}
+          </strong>{" "}
         </p>
       </div>
 
@@ -250,10 +336,12 @@ export default function ResetPasswordForm({
                 ref={(el) => {
                   inputRefs.current[index] = el;
                 }}
-                type="text"
+                type="tel"
                 inputMode="numeric"
-                maxLength={1}
+                autoComplete="one-time-code"
+                pattern="[0-9]*"
                 value={digit}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) => handleOtpChange(index, e.target.value)}
                 onKeyDown={(e) => handleOtpKeyDown(index, e)}
                 onPaste={handleOtpPaste}
@@ -311,7 +399,10 @@ export default function ResetPasswordForm({
             </div>
             <input
               type={showPassword ? "text" : "password"}
-              {...register("password")}
+              onKeyDown={preventSpaceKeyDown}
+              {...register("password", {
+                onChange: (e) => handlePasswordChange("password", e),
+              })}
               placeholder="Nhập mật khẩu mới (tối thiểu 8 ký tự)"
               className={`w-full pl-11 pr-11 py-3 text-sm bg-slate-50/60 border rounded-2xl focus:outline-none focus:ring-2 focus:bg-white transition-all duration-200 text-slate-800 placeholder-slate-400 ${
                 errors.password
@@ -363,7 +454,10 @@ export default function ResetPasswordForm({
             </div>
             <input
               type={showConfirmPassword ? "text" : "password"}
-              {...register("confirmPassword")}
+              onKeyDown={preventSpaceKeyDown}
+              {...register("confirmPassword", {
+                onChange: (e) => handlePasswordChange("confirmPassword", e),
+              })}
               placeholder="Nhập lại mật khẩu mới"
               className={`w-full pl-11 pr-11 py-3 text-sm bg-slate-50/60 border rounded-2xl focus:outline-none focus:ring-2 focus:bg-white transition-all duration-200 text-slate-800 placeholder-slate-400 ${
                 errors.confirmPassword

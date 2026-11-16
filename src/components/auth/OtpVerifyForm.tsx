@@ -16,26 +16,27 @@ import {
 } from "@heroicons/react/24/outline";
 
 interface OtpVerifyFormProps {
-  phone?: string;
+  email?: string;
   onBack?: () => void;
   onVerifySuccess?: (otp: string) => void;
 }
 
 export default function OtpVerifyForm({
-  phone: propPhone,
+  email: propEmail,
   onBack,
   onVerifySuccess,
 }: OtpVerifyFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const phoneParam = propPhone || searchParams.get("phone") || "***";
+  const emailParam = propEmail || searchParams.get("email") || "***";
 
   const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const [countdown, setCountdown] = useState<number>(60);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isResending, setIsResending] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>("");
 
   useEffect(() => {
@@ -73,21 +74,28 @@ export default function OtpVerifyForm({
     if (/^\d{6}$/.test(pastedData)) {
       const digits = pastedData.split("");
       setOtp(digits);
+      setErrorMsg("");
       inputRefs.current[5]?.focus();
     }
   };
 
   const handleResendOtp = async () => {
-    if (countdown > 0) return;
+    if (countdown > 0 || isResending) return;
+
+    if (!emailParam || emailParam === "***") {
+      const msg = "Không tìm thấy địa chỉ email để gửi lại mã OTP!";
+      setErrorMsg(msg);
+      showToast.error(msg);
+      return;
+    }
 
     try {
+      setIsResending(true);
       setErrorMsg("");
 
-      const response = await authService.resendOtp({ phone: phoneParam });
+      await authService.resendOtp({ email: emailParam });
 
-      console.log("Kết quả gửi lại OTP:", response);
-
-      showToast.success("Mã OTP mới đã được gửi lại thành công!");
+      showToast.success("Mã OTP mới đã được gửi lại tới email của bạn!");
       setCountdown(60);
       setOtp(Array(6).fill(""));
       inputRefs.current[0]?.focus();
@@ -103,6 +111,8 @@ export default function OtpVerifyForm({
 
       setErrorMsg(message);
       showToast.error(message);
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -117,18 +127,24 @@ export default function OtpVerifyForm({
       return;
     }
 
+    if (!emailParam || emailParam === "***") {
+      const msg =
+        "Thiếu thông tin email xác thực. Vui lòng quay lại bước đăng ký!";
+      setErrorMsg(msg);
+      showToast.error(msg);
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setErrorMsg("");
 
       const res = await authService.verifyOtp({
-        phone: phoneParam,
+        email: emailParam,
         otp: fullOtp,
       });
 
-      console.log("Xác thực OTP thành công:", res);
-
-      showToast.success("Xác thực OTP thành công!");
+      showToast.success("Xác thực email thành công!");
 
       if (res?.data) {
         localStorage.setItem("user", JSON.stringify(res.data));
@@ -198,18 +214,13 @@ export default function OtpVerifyForm({
 
       <div className="mb-7 text-left">
         <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-          Xác thực mã OTP
+          Xác thực email
         </h2>
         <p className="text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed">
-          Mã xác thực gồm 6 số đã gửi tới{" "}
-          <strong className="text-slate-800 font-semibold">{phoneParam}</strong>{" "}
-          <button
-            type="button"
-            onClick={onBack || (() => router.back())}
-            className="text-[#0d5c3a] font-semibold hover:underline cursor-pointer ml-1"
-          >
-            Đổi số khác
-          </button>
+          Mã xác thực gồm 6 số đã được gửi tới email:{" "}
+          <strong className="text-slate-800 font-semibold break-all">
+            {emailParam}
+          </strong>
         </p>
       </div>
 
@@ -255,14 +266,14 @@ export default function OtpVerifyForm({
           <button
             type="button"
             onClick={handleResendOtp}
-            disabled={countdown > 0}
+            disabled={countdown > 0 || isResending}
             className={`font-semibold transition-colors cursor-pointer ${
-              countdown > 0
+              countdown > 0 || isResending
                 ? "text-slate-300 cursor-not-allowed"
                 : "text-[#0d5c3a] hover:underline"
             }`}
           >
-            Gửi lại mã
+            {isResending ? "Đang gửi..." : "Gửi lại mã"}
           </button>
         </div>
 

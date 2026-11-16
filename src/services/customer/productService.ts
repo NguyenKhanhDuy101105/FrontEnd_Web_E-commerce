@@ -21,6 +21,16 @@ export interface ProductItem {
   inStock: boolean;
 }
 
+export interface BestSellingProductItem {
+  product: ProductItem;
+  quantitySold: number;
+}
+
+export interface GetBestSellingProductsParams {
+  branchId: string;
+  limit?: number;
+}
+
 export interface ProductSearchSuggestion {
   id: string;
   name: string;
@@ -90,6 +100,25 @@ export const productService = {
     const response = await axiosClient.get<
       ApiResponse<PageResponse<ProductItem>>
     >("/api/products", { params: queryParams });
+
+    return response.data;
+  },
+
+  /**
+   * GET: /api/products/best-selling
+   * Lấy danh sách sản phẩm bán chạy theo branchId
+   */
+  getBestSellingProducts: async (
+    params: GetBestSellingProductsParams,
+  ): Promise<ApiResponse<BestSellingProductItem[]>> => {
+    const response = await axiosClient.get<
+      ApiResponse<BestSellingProductItem[]>
+    >("/api/products/best-selling", {
+      params: {
+        branchId: params.branchId,
+        limit: params.limit ?? 10,
+      },
+    });
 
     return response.data;
   },

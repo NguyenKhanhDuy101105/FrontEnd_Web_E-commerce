@@ -8,6 +8,7 @@ import orderService, {
 } from "@/src/services/customer/orderService";
 import { showToast } from "@/src/utils/toast";
 import OrderDetailModal from "./components/OrderDetailModal";
+import OrderReviewModal from "./components/OrderReviewModal";
 import OrderTrackingWidget, {
   StatusCounts,
 } from "./components/OrderTrackingWidget";
@@ -28,61 +29,61 @@ const getStatusBadge = (status: OrderStatus) => {
   switch (status) {
     case "PENDING":
       return (
-        <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200/60 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200/60 rounded-full text-[11px] font-bold shrink-0">
           Chờ xác nhận
         </span>
       );
     case "PROCESSING":
       return (
-        <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-full text-[11px] font-bold shrink-0">
           Đang đóng gói
         </span>
       );
     case "READY_FOR_PICKUP":
       return (
-        <span className="px-2.5 py-1 bg-sky-50 text-sky-700 border border-sky-200/60 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-sky-50 text-sky-700 border border-sky-200/60 rounded-full text-[11px] font-bold shrink-0">
           Sẵn sàng lấy hàng
         </span>
       );
     case "SHIPPING":
       return (
-        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200/60 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200/60 rounded-full text-[11px] font-bold shrink-0">
           Đang vận chuyển
         </span>
       );
     case "DELIVERED_PENDING_CONFIRMATION":
       return (
-        <span className="px-2.5 py-1 bg-amber-100 text-amber-800 border border-amber-300/80 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-amber-100 text-amber-800 border border-amber-300/80 rounded-full text-[11px] font-bold shrink-0">
           Đã giao hàng
         </span>
       );
     case "DELIVERY_FAILED":
       return (
-        <span className="px-2.5 py-1 bg-orange-50 text-orange-700 border border-orange-200/60 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-orange-50 text-orange-700 border border-orange-200/60 rounded-full text-[11px] font-bold shrink-0">
           Giao thất bại
         </span>
       );
     case "COMPLETED":
       return (
-        <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[11px] font-bold shrink-0">
           Đã hoàn thành
         </span>
       );
     case "CANCELLED":
       return (
-        <span className="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200/60 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200/60 rounded-full text-[11px] font-bold shrink-0">
           Đã hủy
         </span>
       );
     case "RETURNED":
       return (
-        <span className="px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200/60 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200/60 rounded-full text-[11px] font-bold shrink-0">
           Trả hàng
         </span>
       );
     default:
       return (
-        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-[11px] font-bold">
+        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-[11px] font-bold shrink-0">
           {status}
         </span>
       );
@@ -99,11 +100,16 @@ export default function OrderManagementPage() {
   const [totalPages, setTotalPages] = useState<number>(0);
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [reviewingOrder, setReviewingOrder] = useState<{
+    id: string;
+    code: string;
+  } | null>(null);
 
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({
     pending: 0,
     processing: 0,
     shipping: 0,
+    deliveredPending: 0,
     completed: 0,
   });
 
@@ -116,7 +122,7 @@ export default function OrderManagementPage() {
     try {
       const res = await orderService.getOrders({
         page,
-        size: 20, // Tăng size lấy nhiều đơn để trượt mượt mà
+        size: 20,
         group: activeGroup,
       });
 
@@ -149,10 +155,10 @@ export default function OrderManagementPage() {
           pending: allList.filter((o) => o.status === "PENDING").length,
           processing: allList.filter((o) => o.status === "PROCESSING").length,
           shipping: allList.filter(
-            (o) =>
-              o.status === "SHIPPING" ||
-              o.status === "DELIVERED_PENDING_CONFIRMATION" ||
-              o.status === "READY_FOR_PICKUP",
+            (o) => o.status === "SHIPPING" || o.status === "READY_FOR_PICKUP",
+          ).length,
+          deliveredPending: allList.filter(
+            (o) => o.status === "DELIVERED_PENDING_CONFIRMATION",
           ).length,
           completed: allList.filter((o) => o.status === "COMPLETED").length,
         });
@@ -167,10 +173,14 @@ export default function OrderManagementPage() {
     fetchStatusCounts();
   }, [fetchOrders, fetchStatusCounts]);
 
-  // Lọc đơn hàng ở Tab "Tất cả / Đơn hàng hiện tại": Loại bỏ các đơn đã COMPLETED
   const displayedOrders = useMemo(() => {
     if (activeGroup === "ALL") {
-      return orders.filter((o) => o.status !== "COMPLETED");
+      return orders.filter(
+        (o) =>
+          o.status !== "COMPLETED" &&
+          o.status !== "CANCELLED" &&
+          o.status !== "RETURNED",
+      );
     }
     return orders;
   }, [orders, activeGroup]);
@@ -197,6 +207,14 @@ export default function OrderManagementPage() {
     }
   };
 
+  const formatOrderCode = (code: string) => {
+    if (!code) return "";
+    if (code.length > 16) {
+      return `${code.slice(0, 7)}...${code.slice(-5)}`;
+    }
+    return code;
+  };
+
   return (
     <div className="space-y-6 min-h-150 flex flex-col justify-between">
       <div className="space-y-6">
@@ -207,7 +225,6 @@ export default function OrderManagementPage() {
         />
 
         <div className="space-y-4 pt-2">
-          {/* Thanh Tab Chuyển đổi Trạng Thái */}
           <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-100 no-scrollbar">
             {ORDER_GROUPS.map((tab) => {
               const isActive = activeGroup === tab.key;
@@ -228,7 +245,6 @@ export default function OrderManagementPage() {
             })}
           </div>
 
-          {/* Danh sách Đơn hàng */}
           {loading ? (
             <div className="space-y-3 py-4">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -250,42 +266,50 @@ export default function OrderManagementPage() {
               </p>
             </div>
           ) : (
-            <div className="max-h-[370px] overflow-y-auto pr-1 space-y-3 scrollbar-thin scrollbar-thumb-slate-200">
+            <div className="max-h-92.5 overflow-y-auto pr-1 space-y-3 scrollbar-thin scrollbar-thumb-slate-200">
               {displayedOrders.map((order) => {
                 const canConfirmReceived =
                   order.status === "DELIVERED_PENDING_CONFIRMATION" ||
                   order.status === "READY_FOR_PICKUP" ||
                   order.status === "SHIPPING";
 
+                const isCompleted = order.status === "COMPLETED";
+
                 return (
                   <div
                     key={order.id}
-                    className="border border-slate-200/80 rounded-lg p-4 hover:border-slate-300 transition bg-white space-y-3 shadow-2xs"
+                    className="border border-slate-200/80 rounded-xl p-3.5 sm:p-4 hover:border-slate-300 transition bg-white space-y-3 shadow-2xs"
                   >
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 text-xs">
-                      <div className="space-x-2">
-                        <span className="font-bold text-slate-800">
-                          Mã đơn: #{order.orderCode}
-                        </span>
-                        <span className="text-slate-400">•</span>
-                        <span className="text-slate-500">
+                    <div className="flex items-start justify-between pb-2.5 border-b border-slate-100 gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-slate-800 text-xs sm:text-sm">
+                          Mã đơn:{" "}
+                          <span
+                            className="text-slate-900 font-mono tracking-tight"
+                            title={`#${order.orderCode}`}
+                          >
+                            #{formatOrderCode(order.orderCode)}
+                          </span>
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Ngày đặt:{" "}
                           {new Date(order.createdAt).toLocaleDateString(
                             "vi-VN",
                           )}
-                        </span>
+                        </p>
                       </div>
                       {getStatusBadge(order.status)}
                     </div>
 
-                    <div className="flex items-center justify-between text-xs pt-1">
-                      <div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2 pt-0.5">
+                      <div className="space-y-0.5">
                         <p className="text-slate-500">
                           Chi nhánh:{" "}
                           <span className="font-semibold text-slate-800">
                             {order.branchName}
                           </span>
                         </p>
-                        <p className="text-slate-500 mt-0.5">
+                        <p className="text-slate-500">
                           Hình thức:{" "}
                           <span className="font-semibold text-slate-800">
                             {order.deliveryType === "DELIVERY"
@@ -295,8 +319,8 @@ export default function OrderManagementPage() {
                         </p>
                       </div>
 
-                      <div className="text-right">
-                        <span className="text-slate-400 block text-[11px]">
+                      <div className="flex sm:flex-col items-center sm:items-end justify-between pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-50">
+                        <span className="text-slate-400 text-[11px]">
                           Tổng tiền
                         </span>
                         <span className="font-black text-green-700 text-sm sm:text-base">
@@ -305,21 +329,36 @@ export default function OrderManagementPage() {
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                    <div className="pt-2.5 border-t border-slate-100 flex items-center justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => setSelectedOrderId(order.id)}
-                        className="px-3.5 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                        className="px-3 sm:px-3.5 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
                       >
                         Xem chi tiết
                       </button>
+
+                      {isCompleted && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setReviewingOrder({
+                              id: order.id,
+                              code: order.orderCode,
+                            })
+                          }
+                          className="px-3 sm:px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 font-bold text-xs rounded-lg transition cursor-pointer shadow-xs"
+                        >
+                          Đánh giá
+                        </button>
+                      )}
 
                       {canConfirmReceived && (
                         <button
                           type="button"
                           onClick={() => handleConfirmReceived(order.id)}
                           disabled={confirmingId === order.id}
-                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-lg transition cursor-pointer shadow-xs"
+                          className="px-3 sm:px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-lg transition cursor-pointer shadow-xs"
                         >
                           {confirmingId === order.id
                             ? "Đang xử lý..."
@@ -354,6 +393,17 @@ export default function OrderManagementPage() {
           onOrderUpdated={() => {
             fetchOrders();
             fetchStatusCounts();
+          }}
+        />
+      )}
+
+      {reviewingOrder && (
+        <OrderReviewModal
+          orderId={reviewingOrder.id}
+          orderCode={reviewingOrder.code}
+          onClose={() => setReviewingOrder(null)}
+          onSuccess={() => {
+            fetchOrders();
           }}
         />
       )}

@@ -232,6 +232,7 @@ export default function ProductCardGrid({
           <Image
             src={getValidImageUrl(image)}
             alt={title || "Product image"}
+            loading="lazy"
             fill
             className={`object-contain transition-transform duration-300 ${
               isOutOfStock ? "opacity-70" : "group-hover:scale-105"

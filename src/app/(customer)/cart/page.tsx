@@ -1,12 +1,20 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ShoppingBagIcon, HomeIcon } from "@heroicons/react/24/outline";
+import {
+  ShoppingBagIcon,
+  HomeIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
 import { useBranch } from "@/src/context/BranchContext";
 import { useCart } from "@/src/context/CartContext";
 import { showToast } from "@/src/utils/toast";
+import {
+  incompatibilityService,
+  IncompatibilityWarning,
+} from "@/src/services/customer/incompatibilityService";
 import CartItemRow from "./(components)/CartItemRow";
 import CartSummarySidebar from "./(components)/CartSummarySidebar";
 
@@ -18,6 +26,10 @@ export default function CartPage() {
 
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+
+  const [warnings, setWarnings] = useState<IncompatibilityWarning[]>([]);
+  const [checkingIncompatibility, setCheckingIncompatibility] =
+    useState<boolean>(false);
 
   useEffect(() => {
     refreshCart();
@@ -37,6 +49,44 @@ export default function CartPage() {
       setSelectedItemIds([]);
     }
   }, [cartItems]);
+
+  const checkIncompatibilities = useCallback(async () => {
+    const selectedProducts = cartItems.filter((item) =>
+      selectedItemIds.includes(item.itemId),
+    );
+
+    const productIds = Array.from(
+      new Set(selectedProducts.map((item) => item.productId)),
+    );
+
+    if (productIds.length < 2) {
+      setWarnings([]);
+      return;
+    }
+
+    setCheckingIncompatibility(true);
+    try {
+      const res = await incompatibilityService.checkCartIncompatibilities({
+        productIds,
+      });
+
+      const data = res?.data || res;
+      if (data?.hasConflict && Array.isArray(data?.warnings)) {
+        setWarnings(data.warnings);
+      } else {
+        setWarnings([]);
+      }
+    } catch (error) {
+      console.error("Lỗi khi kiểm tra kỵ nhau của sản phẩm:", error);
+      setWarnings([]);
+    } finally {
+      setCheckingIncompatibility(false);
+    }
+  }, [cartItems, selectedItemIds]);
+
+  useEffect(() => {
+    checkIncompatibilities();
+  }, [checkIncompatibilities]);
 
   const isAllSelected = useMemo(() => {
     return cartItems.length > 0 && selectedItemIds.length === cartItems.length;
@@ -120,6 +170,37 @@ export default function CartPage() {
     router.push("/checkout");
   };
 
+  const renderSeverityBadge = (severity: string) => {
+    switch (severity) {
+      case "DANGEROUS":
+      case "CRITICAL":
+        return (
+          <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full border bg-purple-100 text-purple-800 border-purple-200">
+            Mức độ: Nguy hiểm
+          </span>
+        );
+      case "HIGH":
+        return (
+          <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full border bg-rose-100 text-rose-800 border-rose-200">
+            Mức độ: Cao
+          </span>
+        );
+      case "MEDIUM":
+        return (
+          <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full border bg-amber-100 text-amber-800 border-amber-200">
+            Mức độ: Trung bình
+          </span>
+        );
+      case "LOW":
+      default:
+        return (
+          <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full border bg-yellow-100 text-yellow-800 border-yellow-200">
+            Mức độ: Thấp (Nhẹ)
+          </span>
+        );
+    }
+  };
+
   if (!branchId) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 text-center text-slate-600 font-medium">
@@ -191,6 +272,71 @@ export default function CartPage() {
                   Xóa tất cả
                 </button>
               </div>
+
+              {warnings.length > 0 && (
+                <div className="space-y-3">
+                  {warnings.map((warn) => (
+                    <div
+                      key={warn.id}
+                      className="bg-amber-50/90 border border-amber-200 rounded-xl p-4 space-y-2.5 shadow-2xs"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                              {warn.title}
+                            </h4>
+                            {renderSeverityBadge(warn.severity)}
+                          </div>
+
+                          {warn.conflictingProducts &&
+                            warn.conflictingProducts.length > 0 && (
+                              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                                <span className="text-[11px] font-semibold text-slate-600">
+                                  Sản phẩm kỵ nhau:
+                                </span>
+                                {warn.conflictingProducts.map((p) => (
+                                  <div
+                                    key={p.id}
+                                    className="flex items-center gap-1.5 bg-white border border-amber-200/80 px-2 py-1 rounded-lg text-xs"
+                                  >
+                                    {p.imageUrl && (
+                                      <img
+                                        src={p.imageUrl}
+                                        alt={p.name}
+                                        className="w-4 h-4 object-contain rounded"
+                                      />
+                                    )}
+                                    <span className="font-bold text-slate-800">
+                                      {p.name}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                          {warn.effect && (
+                            <p className="text-xs text-amber-900 leading-relaxed pt-1">
+                              <span className="font-semibold">Tác hại:</span>{" "}
+                              {warn.effect}
+                            </p>
+                          )}
+
+                          {warn.recommendation && (
+                            <p className="text-xs text-slate-700 leading-relaxed">
+                              <span className="font-semibold text-emerald-800">
+                                Khuyên dùng:
+                              </span>{" "}
+                              {warn.recommendation}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="bg-white rounded-lg p-3.5 sm:p-6 shadow-xs border border-slate-100 space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-xs sm:text-sm">

@@ -15,6 +15,8 @@ import {
   CubeIcon,
   ArrowPathIcon,
   TicketIcon,
+  ClipboardDocumentListIcon,
+  ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { getUserFromStorage, User } from "@/src/utils/getUser";
 import { useAuthGuard } from "@/src/hooks/useAuthGuard";
@@ -96,6 +98,16 @@ export default function AdminPortalLayout({
       name: "Quản lý Voucher",
       href: "/admin/vouchers",
       icon: TicketIcon,
+    },
+    {
+      name: "Quản lý dị ứng",
+      href: "/admin/incompatibilities",
+      icon: ExclamationTriangleIcon,
+    },
+    {
+      name: "Quản lý công thức",
+      href: "/admin/recipes",
+      icon: ClipboardDocumentListIcon,
     },
     {
       name: "Đánh giá và phản hồi",

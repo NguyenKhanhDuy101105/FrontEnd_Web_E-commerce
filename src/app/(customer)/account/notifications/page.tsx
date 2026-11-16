@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import notificationService, {
   NotificationItem,
   NotificationType,
@@ -21,6 +21,8 @@ export default function NotificationsPage() {
 
   const [page, setPage] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
+
+  const listContainerRef = useRef<HTMLDivElement>(null);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -58,6 +60,9 @@ export default function NotificationsPage() {
       setNotifications([]);
     } finally {
       setLoading(false);
+      if (listContainerRef.current) {
+        listContainerRef.current.scrollTop = 0;
+      }
     }
   }, [page, activeType]);
 
@@ -122,7 +127,7 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-5">
       <NotificationFilterTabs
         activeType={activeType}
         unreadCount={unreadCount}
@@ -132,12 +137,12 @@ export default function NotificationsPage() {
       />
 
       {loading ? (
-        <div className="py-20 text-center text-slate-400 text-xs font-medium bg-white rounded-xl border border-slate-200/80">
-          <ArrowPathIcon className="w-6 h-6 animate-spin mx-auto mb-2 text-[#0d5c3a]" />
-          Đang tải danh sách thông báo...
+        <div className="h-120 flex flex-col items-center justify-center text-slate-400 text-xs font-medium bg-white rounded-xl border border-slate-200/80">
+          <ArrowPathIcon className="w-6 h-6 animate-spin mb-2 text-[#0d5c3a]" />
+          <span>Đang tải danh sách thông báo...</span>
         </div>
       ) : notifications.length === 0 ? (
-        <div className="py-20 text-center space-y-2 bg-white rounded-xl border border-slate-200/80">
+        <div className="h-120 flex flex-col items-center justify-center text-center space-y-2 bg-white rounded-xl border border-slate-200/80">
           <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto">
             <BellIcon className="w-6 h-6" />
           </div>
@@ -149,7 +154,10 @@ export default function NotificationsPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div
+          ref={listContainerRef}
+          className="max-h-120 overflow-y-auto pr-1.5 space-y-3 scroll-smooth"
+        >
           {notifications.map((item) => (
             <NotificationCard
               key={item.id}

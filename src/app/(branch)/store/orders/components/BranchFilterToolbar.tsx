@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { BranchOrderStatus } from "@/src/services/store/branchOrderService";
 
 interface FilterToolbarProps {
@@ -9,9 +9,6 @@ interface FilterToolbarProps {
   onSelectTab: (tab: string) => void;
   searchQuery: string;
   onSearchChange: (val: string) => void;
-  isExpressOnly: boolean;
-  onToggleExpress: () => void;
-
   statusCounts: Record<string, number>;
 }
 
@@ -31,8 +28,6 @@ export default function BranchFilterToolbar({
   onSelectTab,
   searchQuery,
   onSearchChange,
-  isExpressOnly,
-  onToggleExpress,
   statusCounts,
 }: FilterToolbarProps) {
   return (
@@ -69,31 +64,26 @@ export default function BranchFilterToolbar({
         })}
       </div>
 
-      <div className="bg-white p-3 rounded-lg border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-        <div className="relative flex-1 min-w-70">
+      <div className="bg-white p-3 rounded-lg border border-slate-200/80 shadow-2xs flex items-center gap-3">
+        <div className="relative flex-1">
           <MagnifyingGlassIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Tìm kiếm theo mã đơn hàng"
-            className="w-full pl-9 pr-14 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-600 focus:bg-white transition"
+            placeholder="Tìm kiếm theo mã đơn hàng..."
+            className="w-full pl-9 pr-9 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-600 focus:bg-white transition"
           />
-        </div>
-
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={isExpressOnly}
-              onChange={onToggleExpress}
-              className="sr-only peer"
-            />
-            <div className="w-8 h-4.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-orange-500 relative"></div>
-            <span className="text-xs font-bold text-slate-700">
-              Giao hỏa tốc
-            </span>
-          </label>
+          {searchQuery.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onSearchChange("")}
+              title="Xóa từ khóa tìm kiếm"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-full transition cursor-pointer"
+            >
+              <XMarkIcon className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -11,8 +11,6 @@ import {
   PhoneIcon,
   EnvelopeIcon,
   CalendarIcon,
-  LockClosedIcon,
-  CheckBadgeIcon,
 } from "@heroicons/react/24/outline";
 import {
   authService,
@@ -20,18 +18,40 @@ import {
 } from "@/src/services/customer/authService";
 import { showToast } from "@/src/utils/toast";
 
-// 1. Validation Schema chuẩn Yup
 const profileSchema = yup.object().shape({
-  fullName: yup.string().required("Vui lòng nhập họ và tên"),
+  fullName: yup
+    .string()
+    .transform((value) =>
+      typeof value === "string" ? value.trim().replace(/\s+/g, " ") : value,
+    )
+    .required("Vui lòng nhập họ và tên")
+    .min(2, "Họ và tên quá ngắn"),
   email: yup
     .string()
+    .trim()
     .required("Vui lòng nhập email")
-    .email("Email không hợp lệ"),
+    .matches(
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+      "Địa chỉ email không hợp lệ",
+    ),
   phone: yup.string().optional(),
-  birthDate: yup.string().required("Vui lòng chọn ngày sinh"),
+  birthDate: yup
+    .string()
+    .required("Vui lòng chọn ngày sinh")
+    .test(
+      "not-in-future",
+      "Ngày sinh không được lớn hơn ngày hiện tại",
+      (value) => {
+        if (!value) return false;
+        const selectedDate = new Date(value);
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        return selectedDate <= today;
+      },
+    ),
   gender: yup
     .string()
-    .oneOf(["MALE", "FEMALE", "OTHER"], "Giới tính không hợp lệ")
+    .oneOf(["MALE", "FEMALE", "OTHER"] as const, "Giới tính không hợp lệ")
     .required("Vui lòng chọn giới tính"),
 });
 
@@ -46,7 +66,8 @@ export default function PersonalInfoForm({
 }: PersonalInfoFormProps) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // 2. Setup React Hook Form
+  const todayStr = new Date().toISOString().split("T")[0];
+
   const {
     register,
     handleSubmit,
@@ -54,6 +75,7 @@ export default function PersonalInfoForm({
     formState: { errors, isSubmitting, isDirty },
   } = useForm<ProfileFormData>({
     resolver: yupResolver(profileSchema),
+    mode: "onChange",
     defaultValues: {
       fullName: "",
       email: "",
@@ -63,10 +85,8 @@ export default function PersonalInfoForm({
     },
   });
 
-  // 3. Call API Lấy thông tin cá nhân (getMe)
   const fetchUserProfile = useCallback(async () => {
     try {
-      setIsLoading(true);
       const res = await authService.getMe();
       if (res?.data) {
         const userData = res.data;
@@ -77,12 +97,17 @@ export default function PersonalInfoForm({
             ? new Date(userData.createdAt).toISOString().split("T")[0]
             : "";
 
+        const validGender: "MALE" | "FEMALE" | "OTHER" =
+          userData.gender === "FEMALE" || userData.gender === "OTHER"
+            ? userData.gender
+            : "MALE";
+
         const formValues: ProfileFormData = {
           fullName: userData.fullName || "",
           email: userData.email || "",
           phone: userData.phone || "",
           birthDate: formattedBirthDate,
-          gender: userData.gender || "MALE",
+          gender: validGender,
         };
 
         reset(formValues);
@@ -104,12 +129,13 @@ export default function PersonalInfoForm({
     fetchUserProfile();
   }, [fetchUserProfile]);
 
-  // 4. Call API Cập nhật thông tin (updateMe)
   const onSubmit = async (data: ProfileFormData) => {
     try {
+      const cleanedFullName = data.fullName.trim().replace(/\s+/g, " ");
+
       const payload: UpdateProfileRequest = {
-        fullName: data.fullName,
-        email: data.email,
+        fullName: cleanedFullName,
+        email: data.email.trim(),
         birthDate: data.birthDate,
         gender: data.gender,
       };
@@ -125,7 +151,11 @@ export default function PersonalInfoForm({
           JSON.stringify({ ...currentUser, ...res.data }),
         );
 
-        reset(data); // Cập nhật lại form state (isDirty = false)
+        reset({
+          ...data,
+          fullName: cleanedFullName,
+          email: data.email.trim(),
+        });
 
         if (onUpdateSuccess) {
           onUpdateSuccess();
@@ -156,7 +186,6 @@ export default function PersonalInfoForm({
 
   return (
     <div className="bg-white p-5 sm:p-6 rounded-lg border border-slate-100 shadow-xs space-y-5">
-      {/* Header Form */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-100">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-slate-800">
@@ -173,7 +202,6 @@ export default function PersonalInfoForm({
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* 1. Họ và tên */}
           <div className="space-y-1">
             <label className="block text-xs font-semibold text-slate-700">
               Họ và tên
@@ -196,7 +224,6 @@ export default function PersonalInfoForm({
             )}
           </div>
 
-          {/* 2. Số điện thoại */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-semibold text-slate-700">
@@ -219,7 +246,6 @@ export default function PersonalInfoForm({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* 3. Địa chỉ Email */}
           <div className="space-y-1">
             <label className="block text-xs font-semibold text-slate-700">
               Email
@@ -242,7 +268,6 @@ export default function PersonalInfoForm({
             )}
           </div>
 
-          {/* 4. Ngày sinh */}
           <div className="space-y-1">
             <label className="block text-xs font-semibold text-slate-700">
               Ngày sinh
@@ -253,6 +278,7 @@ export default function PersonalInfoForm({
               </div>
               <input
                 type="date"
+                max={todayStr}
                 {...register("birthDate")}
                 className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-50/60 border border-slate-200 rounded-lg focus:bg-white focus:outline-hidden focus:border-[#0d5c3a] transition-all"
               />
@@ -265,7 +291,6 @@ export default function PersonalInfoForm({
           </div>
         </div>
 
-        {/* 5. Giới tính */}
         <div className="space-y-1.5 pt-1">
           <label className="block text-xs font-semibold text-slate-700">
             Giới tính
@@ -297,10 +322,8 @@ export default function PersonalInfoForm({
           )}
         </div>
 
-        {/* Nhóm nút bấm action */}
         <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
-            {/* Nút Lưu thay đổi */}
             <button
               type="submit"
               disabled={isSubmitting || !isDirty}
@@ -316,7 +339,6 @@ export default function PersonalInfoForm({
               )}
             </button>
 
-            {/* Nút Hủy (Reset form về dữ liệu ban đầu) */}
             <button
               type="button"
               disabled={!isDirty || isSubmitting}

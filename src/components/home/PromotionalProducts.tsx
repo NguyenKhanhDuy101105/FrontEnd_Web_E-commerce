@@ -82,7 +82,7 @@ export default function PromotionalProducts() {
     <ProductSectionSlider
       title="Khuyến Mãi Hot"
       badgeText="Ưu đãi lớn"
-      seeMoreUrl="/promotions"
+      seeMoreUrl="products?sort=discount_desc"
       products={products}
       loading={loading}
       headerBgColor="bg-orange-500"

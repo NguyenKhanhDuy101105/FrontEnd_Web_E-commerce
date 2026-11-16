@@ -9,6 +9,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import axios from "axios";
 import Cookies from "js-cookie";
+import { useGoogleLogin } from "@react-oauth/google";
 import { authService } from "@/src/services/customer/authService";
 import { branchService } from "@/src/services/store/branchService";
 import {
@@ -29,8 +30,19 @@ const loginSchema = yup.object().shape({
     .matches(/(84|0[3|5|7|8|9])+([0-9]{8})\b/, "Số điện thoại không hợp lệ"),
   password: yup
     .string()
-    .required("Vui lòng nhập mật khẩu")
-    .min(6, "Mật khẩu tối thiểu 6 ký tự"),
+    .test("required-no-only-spaces", "Vui lòng nhập mật khẩu", (value) =>
+      Boolean(value && value.trim().length > 0),
+    )
+    .test(
+      "no-spaces",
+      "Mật khẩu không được chứa khoảng trắng",
+      (value) => !value || !/\s/.test(value),
+    )
+    .min(8, "Mật khẩu tối thiểu 8 ký tự")
+    .required("Vui lòng nhập mật khẩu"),
+  acceptTerms: yup
+    .boolean()
+    .oneOf([true], "Bạn cần đồng ý với Chính sách bảo mật để đăng nhập"),
 });
 
 type LoginFormData = yup.InferType<typeof loginSchema>;
@@ -38,15 +50,96 @@ type LoginFormData = yup.InferType<typeof loginSchema>;
 export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const {
     register,
     handleSubmit,
+    getValues,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: yupResolver(loginSchema),
     mode: "onChange",
   });
+
+  const handleLoginSuccess = async (resData: any) => {
+    const { accessToken, user } = resData;
+    const role = user?.role || "CUSTOMER";
+
+    if (accessToken) {
+      localStorage.setItem("token", accessToken);
+      localStorage.setItem("accessToken", accessToken);
+      Cookies.set("token", accessToken, { expires: 7, path: "/" });
+    }
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+    }
+    if (role) {
+      Cookies.set("role", role, { expires: 7, path: "/" });
+    }
+
+    const normalizedRole = role.toUpperCase();
+    let targetPath = "/";
+
+    if (normalizedRole === "BRANCH") {
+      try {
+        const branchRes = await branchService.getBranches({
+          page: 0,
+          size: 100,
+        });
+        const branchList = branchRes.data?.content || [];
+
+        const userRecord = user as unknown as Record<string, unknown> | null;
+        const currentUserId = (userRecord?.id || userRecord?.accountId) as
+          | string
+          | undefined;
+        const userBranchId = userRecord?.branchId as string | undefined;
+
+        const matchedBranch = branchList.find(
+          (b) =>
+            (currentUserId && b.accountId === currentUserId) ||
+            (userBranchId && b.id === userBranchId),
+        );
+
+        if (matchedBranch) {
+          localStorage.setItem("branchId", matchedBranch.id);
+          localStorage.setItem("currentBranch", JSON.stringify(matchedBranch));
+          Cookies.set("branchId", matchedBranch.id, {
+            expires: 7,
+            path: "/",
+          });
+
+          showToast.success(
+            `Đăng nhập thành công! Chi nhánh: ${matchedBranch.name}`,
+          );
+        } else {
+          showToast.success(
+            "Đăng nhập thành công! Đang chuyển đến không gian chi nhánh.",
+          );
+        }
+      } catch (branchError) {
+        console.error("Lỗi lấy thông tin chi nhánh:", branchError);
+        showToast.success("Đăng nhập thành công!");
+      }
+
+      targetPath = "/store";
+    } else {
+      showToast.success("Đăng nhập thành công!");
+      switch (normalizedRole) {
+        case "ADMIN":
+          targetPath = "/admin";
+          break;
+        case "CUSTOMER":
+        default:
+          targetPath = "/";
+          break;
+      }
+    }
+
+    setIsRedirecting(true);
+    window.location.href = `${window.location.origin}${targetPath}`;
+  };
 
   const onSubmit = async (data: LoginFormData) => {
     try {
@@ -56,110 +149,66 @@ export default function LoginForm() {
       });
 
       if (res?.data) {
-        const { accessToken, user } = res.data;
-        const role = user?.role || "CUSTOMER";
-
-        if (accessToken) {
-          localStorage.setItem("token", accessToken);
-          localStorage.setItem("accessToken", accessToken);
-          Cookies.set("token", accessToken, { expires: 7, path: "/" });
-        }
-        if (user) {
-          localStorage.setItem("user", JSON.stringify(user));
-        }
-        if (role) {
-          Cookies.set("role", role, { expires: 7, path: "/" });
-        }
-
-        const normalizedRole = role.toUpperCase();
-        let targetPath = "/";
-
-        if (normalizedRole === "BRANCH") {
-          try {
-            const branchRes = await branchService.getBranches({
-              page: 0,
-              size: 100,
-            });
-            const branchList = branchRes.data?.content || [];
-
-            const userRecord = user as unknown as Record<
-              string,
-              unknown
-            > | null;
-            const currentUserId = (userRecord?.id || userRecord?.accountId) as
-              | string
-              | undefined;
-            const userBranchId = userRecord?.branchId as string | undefined;
-
-            const matchedBranch = branchList.find(
-              (b) =>
-                (currentUserId && b.accountId === currentUserId) ||
-                (userBranchId && b.id === userBranchId),
-            );
-
-            if (matchedBranch) {
-              localStorage.setItem("branchId", matchedBranch.id);
-              localStorage.setItem(
-                "currentBranch",
-                JSON.stringify(matchedBranch),
-              );
-              Cookies.set("branchId", matchedBranch.id, {
-                expires: 7,
-                path: "/",
-              });
-
-              showToast.success(
-                `Đăng nhập thành công! Chi nhánh: ${matchedBranch.name}`,
-              );
-            } else {
-              showToast.success(
-                "Đăng nhập thành công! Đang chuyển đến không gian chi nhánh.",
-              );
-            }
-          } catch (branchError) {
-            console.error("Lỗi lấy thông tin chi nhánh:", branchError);
-            showToast.success("Đăng nhập thành công!");
-          }
-
-          targetPath = "/store";
-        } else {
-          showToast.success("Đăng nhập thành công!");
-          switch (normalizedRole) {
-            case "ADMIN":
-              targetPath = "/admin";
-              break;
-            case "CUSTOMER":
-            default:
-              targetPath = "/";
-              break;
-          }
-        }
-
-        setIsRedirecting(true);
-        window.location.href = `${window.location.origin}${targetPath}`;
-        return;
+        await handleLoginSuccess(res.data);
       }
     } catch (error) {
       console.error("Lỗi đăng nhập:", error);
-
-      let message = "Số điện thoại hoặc mật khẩu không chính xác.";
-
-      if (axios.isAxiosError(error)) {
-        message = error.response?.data?.message || message;
-      } else if (error instanceof Error) {
-        message = error.message;
-      }
       showToast.error("Số điện thoại hoặc mật khẩu không chính xác.");
-      console.log(message);
     }
+  };
+
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        setIsGoogleLoading(true);
+        const res = await axios.post(
+          `${process.env.NEXT_PUBLIC_API_URL}/auth/google`,
+          { token: tokenResponse.access_token },
+        );
+
+        if (res?.data) {
+          await handleLoginSuccess(res.data);
+        }
+      } catch (error: any) {
+        console.error("Lỗi đăng nhập Google:", error);
+        showToast.error(
+          error.response?.data?.message || "Đăng nhập Google thất bại!",
+        );
+      } finally {
+        setIsGoogleLoading(false);
+      }
+    },
+    onError: () => {
+      showToast.error("Đã hủy hoặc lỗi khi đăng nhập bằng Google!");
+      setIsGoogleLoading(false);
+    },
+  });
+
+  const handleGoogleClick = () => {
+    const isAccepted = getValues("acceptTerms");
+    if (!isAccepted) {
+      setError("acceptTerms", {
+        type: "manual",
+        message: "Bạn cần đồng ý với Chính sách bảo mật để đăng nhập",
+      });
+      showToast.error("Vui lòng đồng ý với Chính sách bảo mật trước!");
+      return;
+    }
+
+    setIsGoogleLoading(true);
+    googleLogin();
   };
 
   return (
     <>
-      {isRedirecting && (
+      {(isRedirecting || isGoogleLoading) && (
         <LoadingSpinner
           fullScreen
-          message="Đang đăng nhập và đồng bộ dữ liệu hệ thống..."
+          message={
+            isGoogleLoading
+              ? "Đang xác thực với Google..."
+              : "Đang đăng nhập và đồng bộ dữ liệu hệ thống..."
+          }
         />
       )}
 
@@ -288,11 +337,42 @@ export default function LoginForm() {
             )}
           </div>
 
+          <div className="space-y-1.5 pt-1">
+            <div className="flex items-start space-x-2.5">
+              <input
+                type="checkbox"
+                id="acceptTerms"
+                {...register("acceptTerms")}
+                className="mt-1 w-4 h-4 text-[#0d5c3a] bg-slate-50 border-slate-300 rounded focus:ring-0 focus:outline-none cursor-pointer shrink-0"
+              />
+              <label
+                htmlFor="acceptTerms"
+                className="text-xs sm:text-sm text-slate-600 leading-relaxed text-justify cursor-pointer select-none"
+              >
+                Bằng việc đánh dấu vào ô này, Tôi xác nhận đã đọc và đồng ý với{" "}
+                <Link
+                  href="/privacy-policy"
+                  target="_blank"
+                  className="font-semibold text-emerald-700 hover:underline inline-flex items-center gap-0.5"
+                >
+                  Chính sách bảo mật
+                </Link>{" "}
+                của UrbanMart, bao gồm quyền thu thập, sử dụng và tiết lộ dữ
+                liệu cá nhân của tôi theo pháp luật quy định.
+              </label>
+            </div>
+            {errors.acceptTerms && (
+              <p className="text-xs text-red-500 font-medium pl-6 animate-fadeIn">
+                {errors.acceptTerms.message}
+              </p>
+            )}
+          </div>
+
           <motion.button
             whileHover={{ scale: 1.005 }}
             whileTap={{ scale: 0.98 }}
             type="submit"
-            disabled={isSubmitting || isRedirecting}
+            disabled={isSubmitting || isRedirecting || isGoogleLoading}
             className="w-full py-3.5 px-4 bg-[#0d5c3a] hover:bg-[#09472d] text-white font-bold text-sm sm:text-base rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-70 mt-2"
           >
             {isSubmitting || isRedirecting ? (
@@ -319,28 +399,37 @@ export default function LoginForm() {
 
         <button
           type="button"
-          onClick={() => console.log("Login with Google")}
-          className="w-full py-3 px-4 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-slate-700 font-semibold text-xs sm:text-sm rounded-2xl transition-all duration-200 flex items-center justify-center space-x-2.5 cursor-pointer shadow-2xs"
+          onClick={handleGoogleClick}
+          disabled={isGoogleLoading || isSubmitting || isRedirecting}
+          className="w-full py-3 px-4 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-slate-700 font-semibold text-xs sm:text-sm rounded-2xl transition-all duration-200 flex items-center justify-center space-x-2.5 cursor-pointer shadow-2xs disabled:opacity-70"
         >
-          <svg className="w-4 h-4" viewBox="0 0 24 24">
-            <path
-              fill="#4285F4"
-              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-            />
-            <path
-              fill="#EA4335"
-              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-            />
-          </svg>
-          <span>Đăng nhập với Google</span>
+          {isGoogleLoading ? (
+            <ArrowPathIcon className="w-4 h-4 animate-spin text-slate-600" />
+          ) : (
+            <svg className="w-4 h-4" viewBox="0 0 24 24">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+              />
+            </svg>
+          )}
+          <span>
+            {isGoogleLoading
+              ? "Đang kết nối Google..."
+              : "Đăng nhập với Google"}
+          </span>
         </button>
 
         <div className="mt-8 text-center text-xs sm:text-sm text-slate-600">

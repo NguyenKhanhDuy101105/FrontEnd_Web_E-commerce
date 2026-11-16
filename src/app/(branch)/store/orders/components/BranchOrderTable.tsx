@@ -39,11 +39,41 @@ export default function BranchOrderTable({
   onRefresh,
 }: BranchOrderTableProps) {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
 
   const [reasonModalState, setReasonModalState] = useState<{
     type: "CANCEL" | "FAILED";
     orderId: string;
   } | null>(null);
+
+  const handleCopyOrderCode = async (
+    e: React.MouseEvent,
+    orderId: string,
+    orderCode: string,
+  ) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(orderCode);
+      setCopiedOrderId(orderId);
+      showToast.success(`Đã sao chép mã đơn: ${orderCode}`);
+      setTimeout(() => {
+        setCopiedOrderId((prev) => (prev === orderId ? null : prev));
+      }, 2000);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = orderCode;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+
+      setCopiedOrderId(orderId);
+      showToast.success(`Đã sao chép mã đơn: ${orderCode}`);
+      setTimeout(() => {
+        setCopiedOrderId((prev) => (prev === orderId ? null : prev));
+      }, 2000);
+    }
+  };
 
   const handleExecute = async (
     orderId: string,
@@ -158,7 +188,7 @@ export default function BranchOrderTable({
     const isLoadingThis = actionLoadingId === order.id;
 
     return (
-      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+      <div className="inline-flex items-center justify-end gap-1.5 flex-nowrap">
         {order.status === "PENDING" && (
           <>
             <button
@@ -170,7 +200,7 @@ export default function BranchOrderTable({
                   "Đã duyệt đơn!",
                 )
               }
-              className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs rounded-lg transition flex items-center gap-1 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+              className="px-2.5 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs rounded-lg transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50 whitespace-nowrap shrink-0"
             >
               <CheckIcon className="w-3.5 h-3.5 stroke-3" /> Xác nhận
             </button>
@@ -183,7 +213,7 @@ export default function BranchOrderTable({
                   orderId: order.id,
                 })
               }
-              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-lg transition cursor-pointer disabled:opacity-50 whitespace-nowrap"
+              className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-lg transition cursor-pointer disabled:opacity-50 whitespace-nowrap shrink-0"
             >
               Hủy đơn
             </button>
@@ -193,17 +223,15 @@ export default function BranchOrderTable({
         {order.status === "PROCESSING" && (
           <button
             disabled={isLoadingThis}
-            onClick={() =>
-              handleExecute(
-                order.id,
-                () =>
-                  branchOrderService.completePreparation(branchId, order.id),
-                "Đã chuẩn bị xong!",
-              )
-            }
-            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-lg transition flex items-center gap-1 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+            onClick={() => {
+              showToast.info(
+                "Vui lòng kiểm tra và tick đủ sản phẩm trước khi hoàn tất đóng gói!",
+              );
+              onSelectOrder(order.id);
+            }}
+            className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-lg transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50 whitespace-nowrap shrink-0"
           >
-            <CheckIcon className="w-3.5 h-3.5 stroke-3" /> Hoàn tất đóng gói
+            <CheckIcon className="w-3.5 h-3.5 stroke-3" /> Soạn & Đóng gói
           </button>
         )}
 
@@ -218,7 +246,7 @@ export default function BranchOrderTable({
                   "Đã bàn giao cho Shipper!",
                 )
               }
-              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition cursor-pointer disabled:opacity-50 whitespace-nowrap"
+              className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition cursor-pointer disabled:opacity-50 whitespace-nowrap shrink-0"
             >
               Bàn giao Shipper
             </button>
@@ -234,7 +262,7 @@ export default function BranchOrderTable({
                 "Đã chuyển giao lại!",
               )
             }
-            className="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs rounded-lg transition flex items-center gap-1 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+            className="px-2.5 py-1.5 bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs rounded-lg transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50 whitespace-nowrap shrink-0"
           >
             <ArrowPathIcon className="w-3.5 h-3.5 stroke-3" /> Giao lại
           </button>
@@ -242,13 +270,13 @@ export default function BranchOrderTable({
 
         <button
           onClick={() => onSelectOrder(order.id)}
-          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer whitespace-nowrap"
+          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer whitespace-nowrap shrink-0"
         >
           Chi tiết
         </button>
 
-        <button className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer">
-          <EllipsisVerticalIcon className="w-5 h-5" />
+        <button className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer shrink-0">
+          <EllipsisVerticalIcon className="w-4 h-4" />
         </button>
       </div>
     );
@@ -257,7 +285,7 @@ export default function BranchOrderTable({
   return (
     <>
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-2xs overflow-hidden">
-        <div className="block lg:hidden divide-y divide-slate-100">
+        <div className="block md:hidden max-h-170 overflow-y-auto divide-y divide-slate-100">
           {loading ? (
             <div className="p-8 text-center text-slate-400 font-medium text-xs">
               Đang tải danh sách đơn hàng từ server...
@@ -278,7 +306,20 @@ export default function BranchOrderTable({
                       >
                         #{order.orderCode}
                       </button>
-                      <DocumentDuplicateIcon className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-pointer" />
+                      <button
+                        type="button"
+                        onClick={(e) =>
+                          handleCopyOrderCode(e, order.id, order.orderCode)
+                        }
+                        title="Sao chép mã đơn hàng"
+                        className="p-1 rounded hover:bg-slate-100 transition cursor-pointer shrink-0"
+                      >
+                        {copiedOrderId === order.id ? (
+                          <CheckIcon className="w-3.5 h-3.5 text-emerald-600 stroke-2.5" />
+                        ) : (
+                          <DocumentDuplicateIcon className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                        )}
+                      </button>
                     </div>
                     <div className="text-[11px] text-slate-400 mt-0.5">
                       {new Date(order.createdAt).toLocaleString("vi-VN")}
@@ -335,18 +376,20 @@ export default function BranchOrderTable({
           )}
         </div>
 
-        <div className="hidden lg:block overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200/80 uppercase tracking-wider text-[11px]">
-                <th className="p-3.5 pl-4 whitespace-nowrap">
+        <div className="hidden md:block max-h-122.5 overflow-x-auto overflow-y-auto">
+          <table className="w-full min-w-260 text-left border-collapse text-xs">
+            <thead className="sticky top-0 z-10 bg-slate-50 shadow-2xs">
+              <tr className="text-slate-500 font-bold border-b border-slate-200/80 uppercase tracking-wider text-[11px]">
+                <th className="py-3.5 px-3 pl-4 whitespace-nowrap">
                   MÃ ĐƠN & THỜI GIAN
                 </th>
-                <th className="p-3.5 whitespace-nowrap">HÌNH THỨC</th>
-                <th className="p-3.5 whitespace-nowrap">TỔNG TIỀN</th>
-                <th className="p-3.5 whitespace-nowrap">THANH TOÁN</th>
-                <th className="p-3.5 whitespace-nowrap">TRẠNG THÁI ĐƠN</th>
-                <th className="p-3.5 text-right pr-4 whitespace-nowrap">
+                <th className="py-3.5 px-3 whitespace-nowrap">HÌNH THỨC</th>
+                <th className="py-3.5 px-3 whitespace-nowrap">TỔNG TIỀN</th>
+                <th className="py-3.5 px-3 whitespace-nowrap">THANH TOÁN</th>
+                <th className="py-3.5 px-3 whitespace-nowrap">
+                  TRẠNG THÁI ĐƠN
+                </th>
+                <th className="py-3.5 px-3 text-right pr-4 whitespace-nowrap">
                   HÀNH ĐỘNG ĐIỀU PHỐI
                 </th>
               </tr>
@@ -376,22 +419,36 @@ export default function BranchOrderTable({
                     key={order.id}
                     className="hover:bg-slate-50/80 transition"
                   >
-                    <td className="p-3.5 pl-4 space-y-1">
+                    <td className="py-3 px-3 pl-4 space-y-1 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => onSelectOrder(order.id)}
-                          className="font-extrabold text-slate-800 hover:text-emerald-700 text-xs cursor-pointer"
+                          title={`#${order.orderCode}`}
+                          className="font-extrabold text-slate-800 hover:text-emerald-700 text-xs cursor-pointer max-w-46.25 xl:max-w-none truncate"
                         >
                           #{order.orderCode}
                         </button>
-                        <DocumentDuplicateIcon className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-pointer" />
+                        <button
+                          type="button"
+                          onClick={(e) =>
+                            handleCopyOrderCode(e, order.id, order.orderCode)
+                          }
+                          title="Sao chép mã đơn hàng"
+                          className="p-1 rounded hover:bg-slate-100 transition cursor-pointer shrink-0"
+                        >
+                          {copiedOrderId === order.id ? (
+                            <CheckIcon className="w-3.5 h-3.5 text-emerald-600 stroke-2.5" />
+                          ) : (
+                            <DocumentDuplicateIcon className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                          )}
+                        </button>
                       </div>
                       <div className="text-[11px] text-slate-400 whitespace-nowrap">
                         {new Date(order.createdAt).toLocaleString("vi-VN")}
                       </div>
                     </td>
 
-                    <td className="p-3.5 whitespace-nowrap">
+                    <td className="py-3 px-3 whitespace-nowrap">
                       {order.deliveryType === "DELIVERY" ? (
                         <span className="px-2.5 py-1 text-[11px] font-bold bg-blue-50 text-blue-700 rounded-full">
                           Giao tận nơi
@@ -403,11 +460,11 @@ export default function BranchOrderTable({
                       )}
                     </td>
 
-                    <td className="p-3.5 font-extrabold text-emerald-700 text-xs whitespace-nowrap">
+                    <td className="py-3 px-3 font-extrabold text-emerald-700 text-xs whitespace-nowrap">
                       {order.totalAmount.toLocaleString("vi-VN")} đ
                     </td>
 
-                    <td className="p-3.5 whitespace-nowrap">
+                    <td className="py-3 px-3 whitespace-nowrap">
                       <span
                         className={`px-2.5 py-1 text-[11px] font-bold rounded-full ${
                           order.paymentStatus === "PAID"
@@ -419,11 +476,11 @@ export default function BranchOrderTable({
                       </span>
                     </td>
 
-                    <td className="p-3.5 whitespace-nowrap">
+                    <td className="py-3 px-3 whitespace-nowrap">
                       {renderStatusBadge(order.status)}
                     </td>
 
-                    <td className="p-3.5 text-right pr-4 whitespace-nowrap">
+                    <td className="py-3 px-3 text-right pr-4 whitespace-nowrap">
                       {renderActionButtons(order)}
                     </td>
                   </tr>

@@ -84,7 +84,7 @@ export default function SearchBar() {
   };
 
   return (
-    <div className="flex-1 max-w-2xl relative z-110" ref={searchRef}>
+    <div className="flex-1 max-w-2xl relative z-30" ref={searchRef}>
       <form
         onSubmit={handleSearchSubmit}
         className="relative flex items-center"
@@ -119,7 +119,7 @@ export default function SearchBar() {
       </form>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden z-110 animate-in fade-in slide-in-from-top-1 duration-150">
+        <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden z-30 animate-in fade-in slide-in-from-top-1 duration-150">
           {loading ? (
             <div className="p-4 text-xs text-slate-400 text-center">
               Đang tìm gợi ý...

@@ -18,7 +18,11 @@ import { notifyCartUpdated } from "@/src/utils/cartEvent";
 import { showToast } from "@/src/utils/toast";
 
 const SORT_OPTIONS = [
-  { key: "promo", label: "Khuyến mãi tốt nhất", apiKey: "discount_desc" },
+  {
+    key: "discount_desc",
+    label: "Khuyến mãi tốt nhất",
+    apiKey: "discount_desc",
+  },
   { key: "price_asc", label: "Giá tăng dần", apiKey: "price_asc" },
   { key: "price_desc", label: "Giá giảm dần", apiKey: "price_desc" },
   { key: "newest", label: "Sản phẩm mới nhất", apiKey: "newest" },
@@ -30,6 +34,8 @@ function ProductsListingContent() {
   const searchParams = useSearchParams();
   const categoryId = searchParams.get("categoryId");
   const searchQuery = searchParams.get("search") || searchParams.get("keyword");
+  const sortParam = searchParams.get("sort");
+  const typeParam = searchParams.get("type");
 
   const minPrice = searchParams.get("minPrice");
   const maxPrice = searchParams.get("maxPrice");
@@ -38,11 +44,15 @@ function ProductsListingContent() {
   const [products, setProducts] = useState<ProductGridProps[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const [activeSortKey, setActiveSortKey] = useState<string | null>(null);
+  const [activeSortKey, setActiveSortKey] = useState<string | null>(sortParam);
 
   const [page, setPage] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [totalElements, setTotalElements] = useState<number>(0);
+
+  useEffect(() => {
+    setActiveSortKey(sortParam);
+  }, [sortParam]);
 
   const fetchProducts = useCallback(async () => {
     if (!branchId) return;
@@ -66,7 +76,9 @@ function ProductsListingContent() {
         ...(cleanSearch ? { search: cleanSearch, keyword: cleanSearch } : {}),
       };
 
-      if (categoryId) {
+      if (typeParam === "daily-fresh") {
+        res = await productService.getDailyFreshProducts(params);
+      } else if (categoryId) {
         res = await productService.getProductsByCategory(categoryId, params);
       } else {
         res = await productService.getProducts(params);
@@ -76,7 +88,7 @@ function ProductsListingContent() {
         const mapped: ProductGridProps[] = res.data.content.map((item) => ({
           id: item.id,
           title: item.name,
-          brand: item.brandName || item.categoryName || "CO.OP SELECT",
+          brand: item.brandName || item.categoryName || "Đang cập nhật",
           image: item.imageUrl || "/images/Banner1.jpeg",
           price: item.displayPrice,
           originalPrice:
@@ -108,6 +120,7 @@ function ProductsListingContent() {
     minPrice,
     maxPrice,
     searchQuery,
+    typeParam,
   ]);
 
   useEffect(() => {
@@ -146,6 +159,12 @@ function ProductsListingContent() {
     }
   };
 
+  const getHeaderTitle = () => {
+    if (typeParam === "daily-fresh") return "Hàng Tươi Mỗi Ngày";
+    if (searchQuery) return `Kết quả tìm kiếm cho "${searchQuery}"`;
+    return "Sản phẩm";
+  };
+
   return (
     <div className="bg-slate-50 min-h-screen py-4 pb-24 sm:py-6 sm:pb-8">
       <div className="max-w-350 mx-auto px-3 sm:px-6">
@@ -155,6 +174,14 @@ function ProductsListingContent() {
           </Link>
           <span>&gt;</span>
           <span className="text-slate-800 font-medium">Danh sách sản phẩm</span>
+          {typeParam === "daily-fresh" && (
+            <>
+              <span>&gt;</span>
+              <span className="text-cyan-700 font-bold">
+                Hàng tươi mỗi ngày
+              </span>
+            </>
+          )}
           {searchQuery && (
             <>
               <span>&gt;</span>
@@ -167,15 +194,15 @@ function ProductsListingContent() {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
           <div className="lg:col-span-1">
-            <ProductFilterSidebar key={categoryId || searchQuery || "all"} />
+            <ProductFilterSidebar
+              key={categoryId || searchQuery || typeParam || "all"}
+            />
           </div>
 
           <div className="lg:col-span-3 space-y-4">
             <div className="bg-white rounded-t-xl p-4 border border-slate-200 space-y-3">
               <h1 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
-                {searchQuery
-                  ? `Kết quả tìm kiếm cho "${searchQuery}"`
-                  : "Sản phẩm"}
+                {getHeaderTitle()}
                 <span className="text-sm font-normal text-slate-400">
                   ({totalElements} sản phẩm)
                 </span>
@@ -216,9 +243,11 @@ function ProductsListingContent() {
               </div>
             ) : products.length === 0 ? (
               <div className="bg-white p-12 text-center border border-slate-200 text-slate-500 text-sm">
-                {searchQuery
-                  ? `Không tìm thấy sản phẩm nào phù hợp với từ khóa "${searchQuery}".`
-                  : "Không tìm thấy sản phẩm nào phù hợp."}
+                {typeParam === "daily-fresh"
+                  ? "Hiện chưa có sản phẩm tươi sống nào tại chi nhánh này."
+                  : searchQuery
+                    ? `Không tìm thấy sản phẩm nào phù hợp với từ khóa "${searchQuery}".`
+                    : "Không tìm thấy sản phẩm nào phù hợp."}
               </div>
             ) : (
               <div className="space-y-4">

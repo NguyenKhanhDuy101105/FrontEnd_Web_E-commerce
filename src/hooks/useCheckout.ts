@@ -6,6 +6,7 @@ import axiosClient from "@/src/lib/axiosClient";
 import { showToast } from "@/src/utils/toast";
 import { calculateHaversineDistance } from "@/src/utils/distance";
 import { CustomerVoucherItem } from "@/src/services/customer/voucherService";
+import { cartService } from "@/src/services/customer/cartService";
 import { Address } from "@/src/app/(customer)/checkout/components/shipping/AddressSelector";
 import { BranchNearby } from "@/src/app/(customer)/checkout/components/shipping/BranchAndNoteSelector";
 import { CartItem } from "@/src/app/(customer)/checkout/components/order-summary/OrderSummarySection";
@@ -16,11 +17,13 @@ import {
   OrderPayload,
 } from "@/src/types/checkout";
 import { orderBadgeManager } from "@/src/utils/orderBadgeEvent";
+import { useCart } from "@/src/context/CartContext";
 
 export function useCheckout() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isBuyNow = searchParams.get("buyNow") === "true";
+  const { refreshCart } = useCart();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [nearbyBranches, setNearbyBranches] = useState<BranchNearby[]>([]);
@@ -350,16 +353,30 @@ export function useCheckout() {
 
     setIsSubmitting(true);
     try {
+      if (isBuyNow) {
+        const buyNowItem = cartItems[0] as CartItemResponse;
+        const targetProductId = buyNowItem.productId || buyNowItem.id || "";
+        const targetQty = buyNowItem.quantity || 1;
+
+        await cartService.addToCart({
+          branchId: selectedBranch.id,
+          productId: targetProductId,
+          quantity: targetQty,
+        });
+      }
+
       const response = await axiosClient.post("/api/orders", orderPayload);
       showToast.success("Đặt hàng thành công!");
       orderBadgeManager.setHasUnread();
+
+      await refreshCart();
 
       if (isBuyNow) {
         sessionStorage.removeItem("buy_now_item");
       } else {
         localStorage.removeItem("checkout_selected_item_ids");
-        localStorage.removeItem("checkout_selected_voucher");
       }
+      localStorage.removeItem("checkout_selected_voucher");
 
       const orderData = response.data?.data || response.data;
 

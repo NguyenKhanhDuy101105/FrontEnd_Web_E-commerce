@@ -12,9 +12,10 @@ export default function Footer() {
             <div className="relative w-9 h-9 bg-white rounded-xl p-0.5 shadow-sm">
               <Image
                 src="/images/Logo.jpeg"
-                alt="UrbanMart Logo"
+                alt="Logo"
                 fill
-                className="object-contain rounded-lg"
+                sizes="(max-width: 768px) 40px, 100px"
+                className="object-contain"
               />
             </div>
             <span className="text-2xl font-black text-white tracking-tight">
@@ -54,7 +55,7 @@ export default function Footer() {
             </li>
             <li>
               <Link
-                href="/privacy"
+                href="/privacy-policy"
                 className="hover:text-emerald-400 transition-colors"
               >
                 Chính sách bảo mật

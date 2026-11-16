@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -9,6 +9,7 @@ import {
   PencilSquareIcon,
   TrashIcon,
   ArrowPathIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import {
   categoriesService,
@@ -18,6 +19,42 @@ import { showToast } from "@/src/utils/toast";
 import CategoryItemL2 from "./components/CategoryItemL2";
 import CategoryDrawer from "./components/CategoryDrawer";
 import DeleteCategoryModal from "./components/DeleteCategoryModal";
+
+const hasVietnameseAccents = (str: string): boolean => {
+  return /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(
+    str,
+  );
+};
+
+const normalizeSearchText = (text: string): string => {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
+};
+
+const matchesCategoryQuery = (name: string, rawQuery: string): boolean => {
+  const cleanQuery = rawQuery.trim().replace(/\s+/g, " ").toLowerCase();
+  if (!cleanQuery) return true;
+
+  const rawName = name.toLowerCase();
+
+  if (hasVietnameseAccents(cleanQuery)) {
+    const tokens = cleanQuery.split(" ").filter(Boolean);
+    return tokens.every((token) => rawName.includes(token));
+  }
+
+  if (rawName.includes(cleanQuery)) return true;
+
+  const normalizedName = normalizeSearchText(name);
+  const queryTokens = normalizeSearchText(rawQuery).split(" ").filter(Boolean);
+
+  return queryTokens.every((token) => normalizedName.includes(token));
+};
 
 export default function AdminCategoryPage() {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
@@ -109,9 +146,66 @@ export default function AdminCategoryPage() {
     setIsDeleteModalOpen(true);
   };
 
-  const filteredCategories = categories.filter((c) =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase().trim()),
-  );
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value.replace(/^\s+/, ""));
+  };
+
+  const { filteredCategories, autoExpandIds } = useMemo(() => {
+    const trimmed = searchTerm.trim();
+    if (!trimmed) {
+      return {
+        filteredCategories: categories,
+        autoExpandIds: new Set<string>(),
+      };
+    }
+
+    const expandSet = new Set<string>();
+    const result: CategoryItem[] = [];
+
+    categories.forEach((l1) => {
+      const l1SelfMatch = matchesCategoryQuery(l1.name, trimmed);
+      const matchedL2List: CategoryItem[] = [];
+
+      (l1.children || []).forEach((l2) => {
+        const l2SelfMatch = matchesCategoryQuery(l2.name, trimmed);
+        const matchedL3List = (l2.children || []).filter((l3) =>
+          matchesCategoryQuery(l3.name, trimmed),
+        );
+
+        if (matchedL3List.length > 0) {
+          expandSet.add(l1.id);
+          expandSet.add(l2.id);
+          matchedL2List.push({
+            ...l2,
+            children: matchedL3List,
+          });
+        } else if (l2SelfMatch) {
+          expandSet.add(l1.id);
+          matchedL2List.push({
+            ...l2,
+            children: [],
+          });
+        }
+      });
+
+      if (matchedL2List.length > 0 || l1SelfMatch) {
+        result.push({
+          ...l1,
+          children: matchedL2List,
+        });
+      }
+    });
+
+    return { filteredCategories: result, autoExpandIds: expandSet };
+  }, [categories, searchTerm]);
+
+  useEffect(() => {
+    if (searchTerm.trim().length > 0) {
+      setExpandedIds(autoExpandIds);
+    } else {
+      setExpandedIds(new Set());
+    }
+  }, [searchTerm, autoExpandIds]);
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen text-slate-800 space-y-6">
@@ -129,11 +223,29 @@ export default function AdminCategoryPage() {
             <MagnifyingGlassIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Tìm kiếm danh mục theo tên..."
+              placeholder="Tìm kiếm danh mục..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d5c3a]/20 font-medium"
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onBlur={() =>
+                setSearchTerm((prev) => prev.trim().replace(/\s+/g, " "))
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setSearchTerm((prev) => prev.trim().replace(/\s+/g, " "));
+                }
+              }}
+              className="w-full pl-10 pr-9 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d5c3a]/20 font-medium"
             />
+            {searchTerm.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/60 transition cursor-pointer"
+                title="Xóa từ khóa tìm kiếm"
+              >
+                <XMarkIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <button

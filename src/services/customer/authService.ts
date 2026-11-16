@@ -34,7 +34,7 @@ export interface RegisterRequest {
 }
 
 export interface VerifyOtpRequest {
-  phone: string;
+  email: string;
   otp: string;
 }
 
@@ -44,11 +44,11 @@ export interface LoginRequest {
 }
 
 export interface ResendOtpRequest {
-  phone: string;
+  email: string;
 }
 
 export interface ResetPasswordRequest {
-  phone: string;
+  email: string;
   otp: string;
   newPassword: string;
 }

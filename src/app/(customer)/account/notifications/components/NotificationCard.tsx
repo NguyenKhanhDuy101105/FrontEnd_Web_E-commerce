@@ -120,7 +120,7 @@ export default function NotificationCard({
         {notification.targetUrl && (
           <div className="pt-1">
             <Link
-              href={notification.targetUrl}
+              href={"/account/orders"}
               className="inline-flex items-center gap-1 text-xs font-bold text-[#0d5c3a] hover:underline"
             >
               <span>Xem chi tiết</span>

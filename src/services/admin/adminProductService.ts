@@ -66,6 +66,12 @@ export interface GetAdminProductsParams {
   search?: string;
 }
 
+export interface SearchAdminProductsParams {
+  keyword: string;
+  page?: number;
+  size?: number;
+}
+
 export interface GetProductsByCategoryParams {
   page?: number;
   size?: number;
@@ -82,6 +88,21 @@ export const adminProductService = {
         page: params?.page ?? 0,
         size: params?.size ?? 100,
         ...(params?.search && { search: params.search }),
+      },
+    });
+    return response.data;
+  },
+
+  searchProducts: async (
+    params: SearchAdminProductsParams,
+  ): Promise<ApiResponse<SpringPageResponse<AdminProductItem>>> => {
+    const response = await axiosClient.get<
+      ApiResponse<SpringPageResponse<AdminProductItem>>
+    >("/api/admin/products/search", {
+      params: {
+        keyword: params.keyword,
+        page: params.page ?? 0,
+        size: params.size ?? 10,
       },
     });
     return response.data;

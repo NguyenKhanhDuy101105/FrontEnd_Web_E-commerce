@@ -7,6 +7,7 @@ import OrderTrackingWidget, {
 } from "./(components)/OrderTrackingWidget";
 import PersonalInfoForm from "./(components)/PersonalInfoForm";
 import AddressAndWishlistSidebar from "./(components)/AddressAndWishlistSidebar";
+import LoadingSpinner from "@/src/components/common/LoadingSpinner";
 
 interface OrderItem {
   id: string;
@@ -21,6 +22,7 @@ export default function AccountOverviewPage() {
     completed: 0,
   });
   const [loadingOrders, setLoadingOrders] = useState<boolean>(true);
+  const [isReloading, setIsReloading] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchOrderCounts = async () => {
@@ -66,13 +68,24 @@ export default function AccountOverviewPage() {
     fetchOrderCounts();
   }, []);
 
+  const handleProfileUpdated = () => {
+    setIsReloading(true);
+    window.location.reload();
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6">
+      {isReloading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-xs">
+          <LoadingSpinner />
+        </div>
+      )}
+
       <OrderTrackingWidget orderCounts={orderCounts} loading={loadingOrders} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-7">
-          <PersonalInfoForm />
+          <PersonalInfoForm onUpdateSuccess={handleProfileUpdated} />
         </div>
 
         <div className="lg:col-span-5">

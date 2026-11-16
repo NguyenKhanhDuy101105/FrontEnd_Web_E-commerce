@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { CategoryItem } from "@/src/services/customer/categoriesService";
+import {
+  categoriesService,
+  CategoryItem,
+} from "@/src/services/customer/categoriesService";
 import {
   adminCategoryService,
   UpdateCategoryRequest,
@@ -18,6 +21,48 @@ interface Props {
   onSuccess: () => void;
 }
 
+const normalizeCategoryName = (value: string): string => {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+};
+
+const isDuplicateCategoryName = (
+  tree: CategoryItem[],
+  candidateName: string,
+  targetParentId: string | null,
+  excludeId?: string,
+): boolean => {
+  const normalizedTarget = normalizeCategoryName(candidateName);
+
+  // Tìm danh sách các danh mục cùng cấp (siblings) với targetParentId
+  let siblings: CategoryItem[] = [];
+
+  if (!targetParentId) {
+    // Cấp 1 (Danh mục gốc)
+    siblings = tree;
+  } else {
+    // Tìm cha ở L1 hoặc L2
+    for (const l1 of tree) {
+      if (l1.id === targetParentId) {
+        siblings = l1.children || [];
+        break;
+      }
+      const foundL2 = (l1.children || []).find(
+        (l2) => l2.id === targetParentId,
+      );
+      if (foundL2) {
+        siblings = foundL2.children || [];
+        break;
+      }
+    }
+  }
+
+  return siblings.some(
+    (item) =>
+      item.id !== excludeId &&
+      normalizeCategoryName(item.name) === normalizedTarget,
+  );
+};
+
 export default function CategoryDrawer({
   isOpen,
   editingItem,
@@ -27,6 +72,7 @@ export default function CategoryDrawer({
   onSuccess,
 }: Props) {
   const [name, setName] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
@@ -35,23 +81,49 @@ export default function CategoryDrawer({
     } else {
       setName("");
     }
+    setError(null);
   }, [editingItem, isOpen]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedName = name.trim();
-    if (!trimmedName) {
+    const cleanedName = name.trim().replace(/\s+/g, " ");
+
+    if (!cleanedName) {
+      setError("Vui lòng nhập tên danh mục!");
       showToast.error("Vui lòng nhập tên danh mục!");
       return;
     }
 
     setIsSubmitting(true);
+    setError(null);
+
     try {
+      // Lấy danh sách danh mục mới nhất từ server để kiểm tra trùng lặp chính xác
+      const catRes = await categoriesService.getCategories();
+      const latestTree: CategoryItem[] = Array.isArray(catRes?.data)
+        ? catRes.data
+        : [];
+
+      const duplicated = isDuplicateCategoryName(
+        latestTree,
+        cleanedName,
+        parentId,
+        editingItem?.id,
+      );
+
+      if (duplicated) {
+        const msg = `Danh mục "${cleanedName}" đã tồn tại trong nhóm này!`;
+        setError(msg);
+        showToast.error(msg);
+        setIsSubmitting(false);
+        return;
+      }
+
       if (editingItem) {
         const payload: UpdateCategoryRequest = {
-          name: trimmedName,
+          name: cleanedName,
           parentId: parentId,
         };
 
@@ -59,21 +131,21 @@ export default function CategoryDrawer({
         showToast.success("Cập nhật danh mục thành công!");
       } else if (parentId) {
         const createdRes = await adminCategoryService.createCategory({
-          name: trimmedName,
+          name: cleanedName,
           children: [],
         });
 
         const newCategoryId = createdRes?.data?.id;
         if (newCategoryId) {
           await adminCategoryService.updateCategory(newCategoryId, {
-            name: trimmedName,
+            name: cleanedName,
             parentId: parentId,
           });
         }
         showToast.success("Thêm mới danh mục con thành công!");
       } else {
         await adminCategoryService.createCategory({
-          name: trimmedName,
+          name: cleanedName,
           children: [],
         });
         showToast.success("Thêm mới danh mục gốc thành công!");
@@ -81,9 +153,13 @@ export default function CategoryDrawer({
 
       onSuccess();
       onClose();
-    } catch (error) {
-      console.error("Lỗi khi lưu danh mục:", error);
-      showToast.error("Thao tác thất bại, vui lòng thử lại!");
+    } catch (err: unknown) {
+      console.error("Lỗi khi lưu danh mục:", err);
+      const serverMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || "Thao tác thất bại, vui lòng thử lại!";
+      setError(serverMsg);
+      showToast.error(serverMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -107,7 +183,7 @@ export default function CategoryDrawer({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs" noValidate>
           <div>
             <label className="block font-bold text-slate-700 mb-1.5">
               Tên danh mục *
@@ -116,9 +192,21 @@ export default function CategoryDrawer({
               type="text"
               placeholder="Nhập tên danh mục..."
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d5c3a]/20 font-medium text-slate-800"
+              onChange={(e) => {
+                setName(e.target.value);
+                if (error) setError(null);
+              }}
+              className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-lg focus:outline-none focus:ring-2 font-medium text-slate-800 ${
+                error
+                  ? "border-rose-500 focus:ring-rose-500/20 bg-rose-50/30"
+                  : "border-slate-200 focus:ring-[#0d5c3a]/20"
+              }`}
             />
+            {error && (
+              <p className="mt-1.5 text-[11px] font-semibold text-rose-600">
+                {error}
+              </p>
+            )}
           </div>
 
           <div>

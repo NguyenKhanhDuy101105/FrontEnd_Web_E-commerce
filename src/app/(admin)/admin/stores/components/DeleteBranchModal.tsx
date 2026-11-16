@@ -29,11 +29,11 @@ export default function DeleteBranchModal({
           </div>
           <div className="space-y-1">
             <h3 className="font-bold text-slate-900 text-sm">
-              Xác nhận xóa chi nhánh
+              Xác nhận bảo trì chi nhánh
             </h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Bạn có chắc chắn muốn xóa chi nhánh{" "}
-              <span className="font-bold text-slate-800">"{branch.name}"</span>{" "}
+              Bạn có chắc chắn muốn bảo trì chi nhánh{" "}
+              <span className="font-bold text-slate-800">{branch.name}</span>{" "}
               không?
             </p>
           </div>
@@ -54,7 +54,7 @@ export default function DeleteBranchModal({
             disabled={loading}
             className="px-3.5 py-1.5 rounded-lg bg-rose-600 text-white font-semibold text-xs hover:bg-rose-700 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
           >
-            {loading ? "Đang xóa..." : "Xác nhận xóa"}
+            {loading ? "Đang bảo trì..." : "Xác nhận bảo trì"}
           </button>
         </div>
       </div>

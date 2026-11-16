@@ -26,6 +26,32 @@ interface Props {
   onSuccess: () => void;
 }
 
+const CLOUDINARY_CLOUD_NAME = "dak681rft";
+const CLOUDINARY_UPLOAD_PRESET = "urbanmart_products";
+const DEFAULT_PRODUCT_PLACEHOLDER =
+  "https://placehold.co/600x600/f1f5f9/64748b?text=San+Pham+UrbanMart";
+
+const uploadToCloudinary = async (file: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error("Không thể tải ảnh lên Cloudinary");
+  }
+
+  const data = await res.json();
+  return data.secure_url;
+};
+
 export default function ProductModal({
   isOpen,
   categories,
@@ -125,6 +151,7 @@ export default function ProductModal({
         setFormBrandId(editingProduct.brandId || "");
         setFormImageUrl(editingProduct.imageUrl || "");
         setImagePreview(editingProduct.imageUrl || "");
+        setSelectedFile(null);
         setImageMode("url");
 
         const path = findCategoryPath(categories, editingProduct.categoryId);
@@ -175,6 +202,10 @@ export default function ProductModal({
         showToast.error("Vui lòng chọn định dạng file hình ảnh!");
         return;
       }
+      if (file.size > 5 * 1024 * 1024) {
+        showToast.error("Dung lượng ảnh tối đa là 5MB!");
+        return;
+      }
       setSelectedFile(file);
       const objectUrl = URL.createObjectURL(file);
       setImagePreview(objectUrl);
@@ -215,13 +246,18 @@ export default function ProductModal({
 
     setIsSubmitting(true);
     try {
-      let finalImageUrl: string | null = null;
+      let finalImageUrl: string = "";
+
       if (imageMode === "url") {
-        finalImageUrl = formImageUrl.trim() || null;
-      } else {
-        finalImageUrl = selectedFile
-          ? "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=500"
-          : null;
+        finalImageUrl = formImageUrl.trim();
+      } else if (selectedFile) {
+        finalImageUrl = await uploadToCloudinary(selectedFile);
+      } else if (editingProduct?.imageUrl) {
+        finalImageUrl = editingProduct.imageUrl.trim();
+      }
+
+      if (!finalImageUrl) {
+        finalImageUrl = DEFAULT_PRODUCT_PLACEHOLDER;
       }
 
       const payload = {
@@ -491,22 +527,36 @@ export default function ProductModal({
                         {selectedFile.name}
                       </span>
                     ) : (
-                      "Chưa chọn tệp nào (PNG, JPG, WEBP tối đa 5MB)"
+                      "Chưa chọn tệp (tự động dùng ảnh mặc định nếu bỏ trống)"
                     )}
                   </div>
                 </div>
               </div>
             ) : (
-              <input
-                type="text"
-                placeholder="https://example.com/image.jpg"
-                value={formImageUrl}
-                onChange={(e) => {
-                  setFormImageUrl(e.target.value);
-                  setImagePreview(e.target.value);
-                }}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none font-medium text-slate-800"
-              />
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  placeholder="https://example.com/image.jpg (bỏ trống để dùng ảnh mặc định)"
+                  value={formImageUrl}
+                  onChange={(e) => {
+                    setFormImageUrl(e.target.value);
+                    setImagePreview(e.target.value);
+                  }}
+                  className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none font-medium text-slate-800"
+                />
+                {imagePreview && (
+                  <div className="relative w-10 h-10 rounded-lg border border-slate-200 overflow-hidden shrink-0 bg-white">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = DEFAULT_PRODUCT_PLACEHOLDER;
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

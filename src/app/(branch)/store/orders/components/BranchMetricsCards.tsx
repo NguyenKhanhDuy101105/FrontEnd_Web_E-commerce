@@ -28,8 +28,8 @@ export default function BranchMetricsCards({
 }: MetricsCardsProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-      <div className="bg-white p-4 rounded-lg border border-slate-200/80 shadow-2xs flex items-center justify-between">
-        <div className="space-y-1">
+      <div className="bg-white p-4 rounded-lg border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
+        <div className="space-y-1 min-w-0">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
             TỔNG ĐƠN HÔM NAY
           </span>
@@ -47,16 +47,16 @@ export default function BranchMetricsCards({
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-lg border border-slate-200/80 shadow-2xs flex items-center justify-between">
-        <div className="space-y-1">
+      <div className="bg-white p-4 rounded-lg border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
+        <div className="space-y-1 min-w-0">
           <span className="text-[11px] font-bold text-rose-500 uppercase tracking-wider block">
             CẦN XỬ LÝ GẤP
           </span>
-          <div className="flex items-baseline gap-1.5">
+          <div className="flex items-baseline gap-1.5 flex-wrap">
             <span className="text-2xl font-black text-rose-600">
               {isLoading ? "..." : pendingCount}
             </span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded-md">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded-md whitespace-nowrap">
               Chờ xác nhận
             </span>
           </div>
@@ -69,8 +69,8 @@ export default function BranchMetricsCards({
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-lg border border-slate-200/80 shadow-2xs flex items-center justify-between">
-        <div className="space-y-1">
+      <div className="bg-white p-4 rounded-lg border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
+        <div className="space-y-1 min-w-0">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
             ĐANG SOẠN HÀNG
           </span>
@@ -88,8 +88,8 @@ export default function BranchMetricsCards({
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-lg border border-slate-200/80 shadow-2xs flex items-center justify-between">
-        <div className="space-y-1">
+      <div className="bg-white p-4 rounded-lg border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
+        <div className="space-y-1 min-w-0">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
             SẴN SÀNG / CHỜ LẤY
           </span>
@@ -107,17 +107,17 @@ export default function BranchMetricsCards({
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-lg border border-slate-200/80 shadow-2xs flex items-center justify-between">
-        <div className="space-y-1">
+      <div className="bg-white p-4 rounded-lg border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
+        <div className="space-y-1 min-w-0">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-            DOANH THU TẠM TÍNH
+            DOANH THU HOÀN THÀNH
           </span>
-          <div className="text-xl font-black text-emerald-700">
+          <div className="text-lg xl:text-xl font-black text-emerald-700 truncate">
             {isLoading ? "..." : totalRevenue.toLocaleString("vi-VN")}{" "}
             <span className="text-xs font-normal">đ</span>
           </div>
           <span className="text-[10px] text-slate-400 block">
-            Tổng tiền danh sách hiện tại
+            Tổng tiền đơn giao thành công
           </span>
         </div>
         <div className="w-10 h-10 rounded-lg bg-emerald-800 text-white flex items-center justify-center shrink-0">

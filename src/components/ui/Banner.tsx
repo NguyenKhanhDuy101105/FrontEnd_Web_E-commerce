@@ -112,7 +112,7 @@ export default function Banner() {
       },
     },
     {
-      id: "pair-7",
+      id: "pair-8",
       leftBanner: {
         image: "/images/Banner/Banner8.png",
         title: "Thực phẩm tươi sống giao nhanh 2h",
@@ -151,6 +151,7 @@ export default function Banner() {
             src={currentPair.leftBanner.image}
             alt={currentPair.leftBanner.title}
             fill
+            sizes="(max-width: 768px) 50vw, 33vw"
             className="object-cover object-center group-hover:scale-105 transition-transform duration-500 ease-in-out"
             priority
           />
@@ -164,6 +165,7 @@ export default function Banner() {
             src={currentPair.rightBanner.image}
             alt={currentPair.rightBanner.title}
             fill
+            sizes="(max-width: 768px) 50vw, 33vw"
             className="object-cover object-center group-hover:scale-105 transition-transform duration-500 ease-in-out"
             priority
           />
