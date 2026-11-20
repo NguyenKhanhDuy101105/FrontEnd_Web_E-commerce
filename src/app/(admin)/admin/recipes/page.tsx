@@ -10,12 +10,13 @@ import {
   RecipePayload,
   CategoryMonAn,
 } from "@/src/services/admin/adminRecipeService";
+import { adminAiService } from "@/src/services/admin/adminAiService";
+import { showToast } from "@/src/utils/toast";
 
 export default function AdminRecipesPage() {
   const [recipes, setRecipes] = useState<RecipeItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Pagination & Filter States
   const [keyword, setKeyword] = useState("");
   const [category, setCategory] = useState("");
   const [isActive, setIsActive] = useState("");
@@ -23,18 +24,15 @@ export default function AdminRecipesPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
 
-  // Recipe Modal States (Create / Edit)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<RecipeItem | null>(null);
 
-  // Delete Modal States
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingRecipe, setDeletingRecipe] = useState<{
     id: string;
     name: string;
   } | null>(null);
 
-  // Fetch API
   const fetchRecipes = useCallback(async () => {
     try {
       setLoading(true);
@@ -62,7 +60,17 @@ export default function AdminRecipesPage() {
     fetchRecipes();
   }, [fetchRecipes]);
 
-  // Handlers
+  const syncAiRecipes = async () => {
+    try {
+      await adminAiService.reindexRecipes();
+    } catch (error) {
+      console.error("Lỗi đồng bộ lại dữ liệu AI:", error);
+      showToast.error(
+        "Đã cập nhật công thức nhưng đồng bộ dữ liệu AI thất bại!",
+      );
+    }
+  };
+
   const handleOpenCreateModal = () => {
     setEditingRecipe(null);
     setIsModalOpen(true);
@@ -82,7 +90,8 @@ export default function AdminRecipesPage() {
     if (deletingRecipe) {
       try {
         await adminRecipeService.deleteRecipe(deletingRecipe.id);
-        fetchRecipes();
+        await syncAiRecipes();
+        await fetchRecipes();
       } catch (error) {
         console.error("Lỗi xóa công thức món ăn:", error);
       }
@@ -95,11 +104,12 @@ export default function AdminRecipesPage() {
     } else {
       await adminRecipeService.createRecipe(payload);
     }
-    fetchRecipes();
+    await syncAiRecipes();
+    await fetchRecipes();
   };
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto">
+    <div className="p-6 max-w-400 mx-auto">
       <RecipeTable
         recipes={recipes}
         loading={loading}

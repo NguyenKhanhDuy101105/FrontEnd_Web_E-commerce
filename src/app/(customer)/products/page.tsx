@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import ProductCardGrid, {
   ProductGridProps,
@@ -31,7 +31,10 @@ const SORT_OPTIONS = [
 ];
 
 function ProductsListingContent() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+
   const categoryId = searchParams.get("categoryId");
   const searchQuery = searchParams.get("search") || searchParams.get("keyword");
   const sortParam = searchParams.get("sort");
@@ -54,6 +57,19 @@ function ProductsListingContent() {
     setActiveSortKey(sortParam);
   }, [sortParam]);
 
+  useEffect(() => {
+    setPage(0);
+  }, [categoryId, searchQuery, typeParam, minPrice, maxPrice]);
+
+  useEffect(() => {
+    if ((categoryId || typeParam === "daily-fresh") && searchQuery) {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.delete("search");
+      nextParams.delete("keyword");
+      router.replace(`${pathname}?${nextParams.toString()}`, { scroll: false });
+    }
+  }, [categoryId, typeParam, searchQuery, searchParams, pathname, router]);
+
   const fetchProducts = useCallback(async () => {
     if (!branchId) return;
 
@@ -64,7 +80,11 @@ function ProductsListingContent() {
         (opt) => opt.key === activeSortKey,
       );
 
-      const cleanSearch = searchQuery?.trim() || undefined;
+      const isBrowsingCategoryOrType =
+        Boolean(categoryId) || typeParam === "daily-fresh";
+      const cleanSearch = !isBrowsingCategoryOrType
+        ? searchQuery?.trim() || undefined
+        : undefined;
 
       const params: GetProductsParams = {
         branchId,
@@ -159,9 +179,13 @@ function ProductsListingContent() {
     }
   };
 
+  const effectiveSearchQuery =
+    !categoryId && typeParam !== "daily-fresh" ? searchQuery : null;
+
   const getHeaderTitle = () => {
     if (typeParam === "daily-fresh") return "Hàng Tươi Mỗi Ngày";
-    if (searchQuery) return `Kết quả tìm kiếm cho "${searchQuery}"`;
+    if (effectiveSearchQuery)
+      return `Kết quả tìm kiếm cho "${effectiveSearchQuery}"`;
     return "Sản phẩm";
   };
 
@@ -182,11 +206,11 @@ function ProductsListingContent() {
               </span>
             </>
           )}
-          {searchQuery && (
+          {effectiveSearchQuery && (
             <>
               <span>&gt;</span>
               <span className="text-emerald-700 font-bold">
-                Tìm kiếm: &quot;{searchQuery}&quot;
+                Tìm kiếm: &quot;{effectiveSearchQuery}&quot;
               </span>
             </>
           )}
@@ -195,7 +219,7 @@ function ProductsListingContent() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
           <div className="lg:col-span-1">
             <ProductFilterSidebar
-              key={categoryId || searchQuery || typeParam || "all"}
+              key={categoryId || effectiveSearchQuery || typeParam || "all"}
             />
           </div>
 
@@ -245,8 +269,8 @@ function ProductsListingContent() {
               <div className="bg-white p-12 text-center border border-slate-200 text-slate-500 text-sm">
                 {typeParam === "daily-fresh"
                   ? "Hiện chưa có sản phẩm tươi sống nào tại chi nhánh này."
-                  : searchQuery
-                    ? `Không tìm thấy sản phẩm nào phù hợp với từ khóa "${searchQuery}".`
+                  : effectiveSearchQuery
+                    ? `Không tìm thấy sản phẩm nào phù hợp với từ khóa "${effectiveSearchQuery}".`
                     : "Không tìm thấy sản phẩm nào phù hợp."}
               </div>
             ) : (

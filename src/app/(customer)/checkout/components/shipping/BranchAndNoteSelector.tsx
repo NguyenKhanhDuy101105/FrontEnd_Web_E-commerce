@@ -32,7 +32,7 @@ export default function BranchAndNoteSelector({
     <div className="space-y-4">
       <div>
         <label className="block text-xs font-bold text-slate-800 mb-2">
-          Giao từ (Cơ sở gần nhất được chọn mặc định)
+          Giao từ (Các cơ sở gần bạn)
         </label>
 
         {loading ? (

@@ -1,4 +1,7 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   recipeService,
@@ -12,6 +15,54 @@ interface RecipeDetailModalProps {
   branchId: string;
   onClose: () => void;
 }
+
+const FALLBACK_IMAGE = "/images/Banner1.jpeg";
+
+const IngredientThumbnail = ({
+  imageUrl,
+  alt,
+}: {
+  imageUrl?: string | null;
+  alt: string;
+}) => {
+  const getSafeSrc = (url?: string | null) => {
+    if (!url || typeof url !== "string" || !url.trim()) return FALLBACK_IMAGE;
+    const trimmed = url.trim();
+    if (
+      trimmed.startsWith("/") ||
+      trimmed.startsWith("http://") ||
+      trimmed.startsWith("https://")
+    ) {
+      return trimmed;
+    }
+    return `/${trimmed}`;
+  };
+
+  const [imgSrc, setImgSrc] = useState<string>(() => getSafeSrc(imageUrl));
+
+  useEffect(() => {
+    setImgSrc(getSafeSrc(imageUrl));
+  }, [imageUrl]);
+
+  const isExternal =
+    imgSrc.startsWith("http://") || imgSrc.startsWith("https://");
+
+  return (
+    <Image
+      src={imgSrc}
+      alt={alt || "Nguyên liệu"}
+      fill
+      sizes="(max-width: 640px) 45vw, 200px"
+      unoptimized={isExternal}
+      onError={() => {
+        if (imgSrc !== FALLBACK_IMAGE) {
+          setImgSrc(FALLBACK_IMAGE);
+        }
+      }}
+      className="object-cover group-hover:scale-105 transition-transform duration-200"
+    />
+  );
+};
 
 export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   recipe,
@@ -50,6 +101,19 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
     fetchIngredients();
   }, [recipe, branchId]);
 
+  useEffect(() => {
+    if (!recipe) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [recipe, onClose]);
+
   if (!recipe) return null;
 
   const recipeDescription = (recipe as { description?: string }).description;
@@ -85,10 +149,17 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 p-3 sm:p-4 overflow-y-auto">
-      <div className="relative w-full max-w-3xl rounded-2xl bg-white p-4 sm:p-6 shadow-xl my-auto max-h-[85vh] overflow-y-auto pt-10 sm:pt-6">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 p-3 sm:p-4 overflow-y-auto"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-3xl rounded-2xl bg-white p-4 sm:p-6 shadow-xl my-auto max-h-[85vh] overflow-y-auto pt-10 sm:pt-6"
+      >
         <button
           onClick={onClose}
+          aria-label="Đóng"
           className="absolute right-3 top-3 sm:right-4 sm:top-4 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer p-1 rounded-full bg-gray-100 hover:bg-gray-200 z-10"
         >
           <svg
@@ -143,13 +214,12 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                 >
                   <div>
                     <div className="relative mb-2 aspect-square w-full overflow-hidden rounded-lg bg-gray-50">
-                      <img
-                        src={item.imageUrl}
+                      <IngredientThumbnail
+                        imageUrl={item.imageUrl}
                         alt={item.name}
-                        className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200"
                       />
                       {!item.inStock && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10">
                           <span className="rounded bg-black/70 px-1.5 py-0.5 text-[10px] sm:text-xs text-white font-medium">
                             Tạm hết hàng
                           </span>

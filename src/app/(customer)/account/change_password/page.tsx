@@ -9,7 +9,7 @@ import {
   XCircleIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
-import { authService } from "@/src/services/authService";
+import { authService } from "@/src/services/customer/authService";
 import { showToast } from "@/src/utils/toast";
 import { useRouter } from "next/navigation";
 
@@ -130,8 +130,20 @@ export default function ChangePasswordPage() {
         newPassword: "",
         confirmNewPassword: "",
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Lỗi đổi mật khẩu:", error);
+      let errorMessage = "Đổi mật khẩu thất bại. Vui lòng thử lại!";
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message
+      ) {
+        errorMessage = (error as { response: { data: { message: string } } })
+          .response.data.message;
+      }
+      showToast.error(errorMessage);
     } finally {
       setLoading(false);
     }

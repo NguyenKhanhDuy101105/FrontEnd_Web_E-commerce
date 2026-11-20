@@ -14,6 +14,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "*.gstatic.com",
       },
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+      },
     ],
   },
   async headers() {

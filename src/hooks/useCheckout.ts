@@ -18,17 +18,79 @@ import {
 } from "@/src/types/checkout";
 import { orderBadgeManager } from "@/src/utils/orderBadgeEvent";
 import { useCart } from "@/src/context/CartContext";
+import { useBranch } from "@/src/context/BranchContext";
+
+function calculateShippingFeeByPolicy(
+  distanceKm: number,
+  subTotal: number,
+): number {
+  let baseFee = 10000;
+  if (distanceKm <= 5) {
+    baseFee = 10000;
+  } else if (distanceKm <= 15) {
+    baseFee = 20000;
+  } else if (distanceKm <= 30) {
+    baseFee = 30000;
+  } else {
+    baseFee = 40000;
+  }
+
+  if (subTotal < 300000) {
+    return baseFee;
+  }
+
+  if (subTotal <= 500000) {
+    if (distanceKm <= 5) return 0;
+    return Math.round(baseFee * 0.5);
+  }
+
+  if (distanceKm <= 30) {
+    return 0;
+  }
+  return 20000;
+}
 
 export function useCheckout() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isBuyNow = searchParams.get("buyNow") === "true";
   const { refreshCart } = useCart();
+  const { selectedBranch: contextBranch, setSelectedBranch: setContextBranch } =
+    useBranch();
+
+  const preferredContextBranchId = contextBranch?.id;
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [nearbyBranches, setNearbyBranches] = useState<BranchNearby[]>([]);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    if (isBuyNow && typeof window !== "undefined") {
+      try {
+        const storedItem = sessionStorage.getItem("buy_now_item");
+        if (storedItem) {
+          return [JSON.parse(storedItem)];
+        }
+      } catch (e) {
+        console.error("Lỗi parse buy_now_item:", e);
+      }
+    }
+    return [];
+  });
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>(() => {
+    if (isBuyNow || typeof window === "undefined") return [];
+    try {
+      const savedIds = localStorage.getItem("checkout_selected_item_ids");
+      if (savedIds) {
+        const parsed = JSON.parse(savedIds);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error("Lỗi parse checkout item ids:", e);
+    }
+    return [];
+  });
+  const [migratedProductIds, setMigratedProductIds] = useState<string[]>([]);
   const [loadingCart, setLoadingCart] = useState<boolean>(false);
   const [loadingAddress, setLoadingAddress] = useState<boolean>(true);
   const [loadingBranch, setLoadingBranch] = useState<boolean>(false);
@@ -53,41 +115,150 @@ export function useCheckout() {
     new Date().toISOString().split("T")[0],
   );
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("10-12");
-  const [selectedBranch, setSelectedBranch] = useState<BranchNearby | null>(
-    null,
-  );
+
+  const [selectedBranch, setSelectedBranchState] =
+    useState<BranchNearby | null>(() => {
+      if (contextBranch) {
+        return {
+          id: contextBranch.id,
+          name: contextBranch.name,
+          address: contextBranch.address,
+          phone: contextBranch.phone || "",
+          distanceKm: 0,
+        };
+      }
+      if (typeof window !== "undefined") {
+        try {
+          const saved = localStorage.getItem("selectedBranch");
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed?.id) {
+              return {
+                id: parsed.id,
+                name: parsed.name,
+                address: parsed.address,
+                phone: parsed.phone || "",
+                distanceKm: 0,
+              };
+            }
+          }
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    });
+
   const [note, setNote] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("COD");
 
   const [selectedVoucher, setSelectedVoucher] =
-    useState<CustomerVoucherItem | null>(null);
-  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState<boolean>(false);
-
-  useEffect(() => {
-    const savedVoucher = localStorage.getItem("checkout_selected_voucher");
-    if (savedVoucher) {
+    useState<CustomerVoucherItem | null>(() => {
+      if (typeof window === "undefined") return null;
       try {
-        setSelectedVoucher(JSON.parse(savedVoucher));
+        const savedVoucher = localStorage.getItem("checkout_selected_voucher");
+        if (savedVoucher) {
+          return JSON.parse(savedVoucher);
+        }
       } catch (e) {
         console.error("Lỗi parse checkout_selected_voucher:", e);
       }
-    }
-  }, []);
+      return null;
+    });
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (isBuyNow) return;
-    const savedIds = localStorage.getItem("checkout_selected_item_ids");
-    if (savedIds) {
-      try {
-        const parsed = JSON.parse(savedIds);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setSelectedItemIds(parsed);
-        }
-      } catch (e) {
-        console.error("Lỗi parse checkout item ids:", e);
+  const handleSelectBranch = useCallback(
+    async (newBranch: BranchNearby | null) => {
+      if (!newBranch) {
+        setSelectedBranchState(null);
+        return;
       }
-    }
-  }, [isBuyNow]);
+
+      if (newBranch.id === selectedBranch?.id) return;
+
+      const currentItemsToMigrate = [...cartItems];
+
+      setSelectedBranchState(newBranch);
+      setContextBranch({
+        id: newBranch.id,
+        name: newBranch.name,
+        address: newBranch.address,
+        phone: newBranch.phone,
+      } as Parameters<typeof setContextBranch>[0]);
+
+      if (isBuyNow || currentItemsToMigrate.length === 0) {
+        return;
+      }
+
+      setLoadingCart(true);
+      try {
+        const existingRes = await axiosClient.get("/api/cart", {
+          params: { branchId: newBranch.id },
+        });
+        const existingItems: CartItemResponse[] =
+          existingRes.data?.data?.items || [];
+        const existingProductIds = new Set(
+          existingItems.map((item) => item.productId || item.id || ""),
+        );
+
+        const targetProductIds: string[] = [];
+        const failedNames: string[] = [];
+
+        for (const item of currentItemsToMigrate) {
+          const rawItem = item as CartItemResponse & CartItem;
+          const prodId = rawItem.productId || rawItem.id || "";
+          const prodName =
+            rawItem.productName || rawItem.name || rawItem.title || "Sản phẩm";
+          const qty = rawItem.quantity || 1;
+
+          if (!prodId) continue;
+
+          if (existingProductIds.has(prodId)) {
+            targetProductIds.push(prodId);
+            continue;
+          }
+
+          try {
+            await cartService.addToCart({
+              branchId: newBranch.id,
+              productId: prodId,
+              quantity: qty,
+            });
+            targetProductIds.push(prodId);
+          } catch {
+            failedNames.push(prodName);
+          }
+        }
+
+        setMigratedProductIds(targetProductIds);
+        setSelectedItemIds(targetProductIds);
+        localStorage.setItem(
+          "checkout_selected_item_ids",
+          JSON.stringify(targetProductIds),
+        );
+
+        await refreshCart();
+
+        if (failedNames.length > 0) {
+          showToast.error(
+            `Một số sản phẩm tạm hết hàng tại ${newBranch.name}: ${failedNames.join(", ")}`,
+          );
+        } else {
+          showToast.success(
+            `Đã chuyển đơn hàng sang giao từ ${newBranch.name}`,
+          );
+        }
+      } catch (error) {
+        console.error("Lỗi chuyển sản phẩm sang chi nhánh mới:", error);
+        showToast.error(
+          "Không thể đồng bộ giỏ hàng sang chi nhánh mới. Vui lòng thử lại!",
+        );
+      } finally {
+        setLoadingCart(false);
+      }
+    },
+    [selectedBranch?.id, cartItems, setContextBranch, isBuyNow, refreshCart],
+  );
 
   useEffect(() => {
     const fetchAddresses = async () => {
@@ -149,10 +320,25 @@ export function useCheckout() {
 
           branchesWithDistance.sort((a, b) => a.distanceKm - b.distanceKm);
           setNearbyBranches(branchesWithDistance);
-          setSelectedBranch(branchesWithDistance[0]);
+
+          let targetBranchId = preferredContextBranchId;
+          if (!targetBranchId && typeof window !== "undefined") {
+            try {
+              const saved = localStorage.getItem("selectedBranch");
+              if (saved) targetBranchId = JSON.parse(saved)?.id;
+            } catch {
+              targetBranchId = undefined;
+            }
+          }
+
+          const matchedBranch = targetBranchId
+            ? branchesWithDistance.find((b) => b.id === targetBranchId)
+            : undefined;
+
+          setSelectedBranchState(matchedBranch || branchesWithDistance[0]);
         } else {
           setNearbyBranches([]);
-          setSelectedBranch(null);
+          setSelectedBranchState(null);
         }
       } catch (error) {
         console.error("Lỗi khi tải danh sách chi nhánh:", error);
@@ -161,48 +347,50 @@ export function useCheckout() {
         setLoadingBranch(false);
       }
     },
-    [],
+    [preferredContextBranchId],
   );
 
   useEffect(() => {
     fetchAndCalculateBranches(selectedAddress);
   }, [selectedAddress, fetchAndCalculateBranches]);
 
-  useEffect(() => {
-    if (!selectedBranch?.id) return;
+  const activeBranchId = selectedBranch?.id;
 
-    if (isBuyNow) {
-      const storedItem = sessionStorage.getItem("buy_now_item");
-      if (storedItem) {
-        try {
-          const parsed = JSON.parse(storedItem);
-          setCartItems([parsed]);
-          return;
-        } catch (e) {
-          console.error("Lỗi parse buy_now_item:", e);
+  useEffect(() => {
+    if (!activeBranchId) return;
+
+    const loadCheckoutItems = async () => {
+      if (isBuyNow) {
+        const storedItem = sessionStorage.getItem("buy_now_item");
+        if (storedItem) {
+          try {
+            const parsed = JSON.parse(storedItem);
+            setCartItems([parsed]);
+            return;
+          } catch (e) {
+            console.error("Lỗi parse buy_now_item:", e);
+          }
         }
       }
-    }
 
-    const fetchCartByBranch = async () => {
       setLoadingCart(true);
       try {
         const response = await axiosClient.get("/api/cart", {
-          params: { branchId: selectedBranch.id },
+          params: { branchId: activeBranchId },
         });
 
         const data = response.data?.data || {};
         const items: CartItem[] = data.items || [];
 
-        if (selectedItemIds.length > 0) {
+        const filterIds =
+          migratedProductIds.length > 0 ? migratedProductIds : selectedItemIds;
+
+        if (filterIds.length > 0) {
           const filteredItems = items.filter((item) => {
             const rawItem = item as CartItemResponse;
             const itemId = rawItem.itemId || rawItem.id || "";
             const productId = rawItem.productId || "";
-            return (
-              selectedItemIds.includes(itemId) ||
-              selectedItemIds.includes(productId)
-            );
+            return filterIds.includes(itemId) || filterIds.includes(productId);
           });
           setCartItems(filteredItems);
         } else {
@@ -216,8 +404,8 @@ export function useCheckout() {
       }
     };
 
-    fetchCartByBranch();
-  }, [selectedBranch, selectedItemIds, isBuyNow]);
+    loadCheckoutItems();
+  }, [activeBranchId, selectedItemIds, migratedProductIds, isBuyNow]);
 
   const subTotal = useMemo(() => {
     return cartItems.reduce((sum, item) => {
@@ -231,8 +419,10 @@ export function useCheckout() {
   }, [cartItems]);
 
   const distanceKm = selectedBranch?.distanceKm || 0;
-  const calculatedShippingFee =
-    distanceKm > 6 ? Math.round((distanceKm - 6) * 5000) : 0;
+  const calculatedShippingFee = useMemo(
+    () => calculateShippingFeeByPolicy(distanceKm, subTotal),
+    [distanceKm, subTotal],
+  );
   const shippingFee = deliveryType === "PICKUP" ? 0 : calculatedShippingFee;
 
   const discountAmount = useMemo(() => {
@@ -425,7 +615,7 @@ export function useCheckout() {
     selectedTimeSlot,
     setSelectedTimeSlot,
     selectedBranch,
-    setSelectedBranch,
+    setSelectedBranch: handleSelectBranch,
     note,
     setNote,
     paymentMethod,

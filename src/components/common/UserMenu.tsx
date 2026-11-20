@@ -15,6 +15,7 @@ import { useAuthGuard } from "@/src/hooks/useAuthGuard";
 import Cookies from "js-cookie";
 import LoadingSpinner from "@/src/components/common/LoadingSpinner";
 import { orderBadgeManager } from "@/src/utils/orderBadgeEvent";
+import { chatStorage } from "@/src/utils/chatStorage";
 
 interface UserData {
   id?: string;
@@ -96,7 +97,7 @@ export default function UserMenu() {
     localStorage.removeItem("user");
     localStorage.removeItem("selectedBranch");
     localStorage.removeItem("checkout_selected_voucher");
-
+    chatStorage.clearAllChatData();
     Cookies.remove("token", { path: "/" });
     Cookies.remove("role", { path: "/" });
 

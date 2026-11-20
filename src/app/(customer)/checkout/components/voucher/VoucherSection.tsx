@@ -49,7 +49,7 @@ export default function VoucherSection({
         onClick={onOpenVoucherModal}
         className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer shrink-0"
       >
-        {selectedVoucher ? "Thay đổi" : "Chọn hoặc nhập mã"}
+        {selectedVoucher ? "Thay đổi" : "Chọn mã khuyến mãi"}
       </button>
     </div>
   );

@@ -128,8 +128,13 @@ export const authService = {
   },
 
   // PATCH: /api/auth/change-password
-  changePassword: async (payload: ChangePasswordPayload) => {
-    const response = await axiosClient.patch("/auth/change-password", payload);
+  changePassword: async (
+    payload: ChangePasswordPayload,
+  ): Promise<ApiResponse<string | null>> => {
+    const response = await axiosClient.patch<ApiResponse<string | null>>(
+      "/api/auth/change-password",
+      payload,
+    );
     return response.data;
   },
 

@@ -27,9 +27,10 @@ export default function CustomerLayout({
 
         <div className="hidden md:block">
           <Footer />
-          <ChatWidget />
         </div>
       </div>
+
+      <ChatWidget />
     </GoogleOAuthProvider>
   );
 }

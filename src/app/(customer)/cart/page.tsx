@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ShoppingBagIcon,
@@ -17,6 +18,7 @@ import {
 } from "@/src/services/customer/incompatibilityService";
 import CartItemRow from "./(components)/CartItemRow";
 import CartSummarySidebar from "./(components)/CartSummarySidebar";
+import ClearCartConfirmModal from "./(components)/ClearCartConfirmModal";
 
 export default function CartPage() {
   const router = useRouter();
@@ -26,10 +28,10 @@ export default function CartPage() {
 
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [isClearModalOpen, setIsClearModalOpen] = useState<boolean>(false);
+  const [isClearingCart, setIsClearingCart] = useState<boolean>(false);
 
   const [warnings, setWarnings] = useState<IncompatibilityWarning[]>([]);
-  const [checkingIncompatibility, setCheckingIncompatibility] =
-    useState<boolean>(false);
 
   useEffect(() => {
     refreshCart();
@@ -64,7 +66,6 @@ export default function CartPage() {
       return;
     }
 
-    setCheckingIncompatibility(true);
     try {
       const res = await incompatibilityService.checkCartIncompatibilities({
         productIds,
@@ -79,8 +80,6 @@ export default function CartPage() {
     } catch (error) {
       console.error("Lỗi khi kiểm tra kỵ nhau của sản phẩm:", error);
       setWarnings([]);
-    } finally {
-      setCheckingIncompatibility(false);
     }
   }, [cartItems, selectedItemIds]);
 
@@ -147,16 +146,26 @@ export default function CartPage() {
     }
   };
 
-  const handleClearCart = async () => {
-    if (!confirm("Bạn có chắc chắn muốn xóa toàn bộ sản phẩm trong giỏ hàng?"))
-      return;
+  const handleConfirmClearCart = async () => {
+    if (cartItems.length === 0 || isClearingCart) return;
 
-    for (const item of cartItems) {
-      await updateQuantity(item.productId, 0);
-    }
+    const itemsToDelete = [...cartItems];
+    setIsClearModalOpen(false);
     setSelectedItemIds([]);
-  };
+    setIsClearingCart(true);
 
+    try {
+      await Promise.all(
+        itemsToDelete.map((item) => updateQuantity(item.productId, 0)),
+      );
+      showToast.success("Đã xóa toàn bộ sản phẩm trong giỏ hàng!");
+    } catch (error) {
+      console.error("Lỗi khi xóa toàn bộ giỏ hàng:", error);
+      showToast.error("Có lỗi xảy ra khi xóa giỏ hàng. Vui lòng thử lại!");
+    } finally {
+      setIsClearingCart(false);
+    }
+  };
   const handleGoToCheckout = () => {
     if (selectedItemIds.length === 0) {
       showToast.error("Vui lòng chọn ít nhất 1 sản phẩm để thanh toán!");
@@ -266,10 +275,11 @@ export default function CartPage() {
 
                 <button
                   type="button"
-                  onClick={handleClearCart}
-                  className="text-xs sm:text-sm font-semibold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer transition-colors"
+                  disabled={isClearingCart}
+                  onClick={() => setIsClearModalOpen(true)}
+                  className="text-xs sm:text-sm font-semibold text-green-600 hover:text-green-700 hover:underline cursor-pointer transition-colors disabled:opacity-50"
                 >
-                  Xóa tất cả
+                  {isClearingCart ? "Đang xóa..." : "Xóa tất cả"}
                 </button>
               </div>
 
@@ -302,11 +312,16 @@ export default function CartPage() {
                                     className="flex items-center gap-1.5 bg-white border border-amber-200/80 px-2 py-1 rounded-lg text-xs"
                                   >
                                     {p.imageUrl && (
-                                      <img
-                                        src={p.imageUrl}
-                                        alt={p.name}
-                                        className="w-4 h-4 object-contain rounded"
-                                      />
+                                      <div className="relative w-4 h-4 shrink-0">
+                                        <Image
+                                          src={p.imageUrl}
+                                          alt={p.name}
+                                          fill
+                                          sizes="16px"
+                                          unoptimized
+                                          className="object-contain rounded"
+                                        />
+                                      </div>
                                     )}
                                     <span className="font-bold text-slate-800">
                                       {p.name}
@@ -386,6 +401,15 @@ export default function CartPage() {
           </div>
         )}
       </div>
+
+      <ClearCartConfirmModal
+        isOpen={isClearModalOpen}
+        itemCount={cartItems.length}
+        branchName={selectedBranch?.name}
+        isClearing={isClearingCart}
+        onClose={() => setIsClearModalOpen(false)}
+        onConfirm={handleConfirmClearCart}
+      />
     </div>
   );
 }

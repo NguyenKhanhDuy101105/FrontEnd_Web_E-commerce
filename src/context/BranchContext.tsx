@@ -35,9 +35,9 @@ export const BranchProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (branchList.length > 0) {
         const nearest = branchList[0];
-
         setSelectedBranchState(nearest);
         localStorage.setItem("selectedBranch", JSON.stringify(nearest));
+        localStorage.setItem("selectedBranchId", nearest.id);
       }
     } catch (error) {
       console.error("Lỗi tự động chọn chi nhánh gần nhất:", error);
@@ -45,23 +45,32 @@ export const BranchProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    const savedBranch = localStorage.getItem("selectedBranch");
+    const initBranch = async () => {
+      const savedBranch = localStorage.getItem("selectedBranch");
 
-    if (savedBranch) {
-      try {
-        setSelectedBranchState(JSON.parse(savedBranch));
-      } catch (e) {
-        console.error("Lỗi parse branch từ localStorage:", e);
-        autoSelectNearestBranch();
+      if (savedBranch) {
+        try {
+          const parsed: Branch = JSON.parse(savedBranch);
+          setSelectedBranchState(parsed);
+          if (parsed?.id) {
+            localStorage.setItem("selectedBranchId", parsed.id);
+          }
+          return;
+        } catch (e) {
+          console.error("Lỗi parse branch từ localStorage:", e);
+        }
       }
-    } else {
-      autoSelectNearestBranch();
-    }
+
+      await autoSelectNearestBranch();
+    };
+
+    initBranch();
   }, [autoSelectNearestBranch]);
 
   const setSelectedBranch = (branch: Branch) => {
     setSelectedBranchState(branch);
     localStorage.setItem("selectedBranch", JSON.stringify(branch));
+    localStorage.setItem("selectedBranchId", branch.id);
   };
 
   return (

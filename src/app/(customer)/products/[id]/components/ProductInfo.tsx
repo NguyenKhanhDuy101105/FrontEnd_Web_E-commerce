@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { HeartIcon as HeartOutline } from "@heroicons/react/24/outline";
 import { HeartIcon as HeartSolid } from "@heroicons/react/24/solid";
 import { useWishlist } from "@/src/context/WishlistContext";
@@ -34,6 +34,62 @@ export default function ProductInfo({
   const wishlist = isWishlisted(product.id);
   const stockQuantity = product.stockQuantity ?? 0;
   const isOutOfStock = product.isOutOfStock || stockQuantity <= 0;
+
+  const [inputValue, setInputValue] = useState<string>(
+    isOutOfStock ? "0" : String(quantity),
+  );
+
+  useEffect(() => {
+    setInputValue(isOutOfStock ? "0" : String(quantity));
+  }, [quantity, isOutOfStock]);
+
+  const commitQuantity = () => {
+    if (isOutOfStock) {
+      setInputValue("0");
+      return;
+    }
+
+    const trimmed = inputValue.trim();
+    if (!trimmed) {
+      setInputValue(String(quantity));
+      return;
+    }
+
+    const parsed = parseInt(trimmed, 10);
+    if (isNaN(parsed) || parsed < 1) {
+      setQuantity(1);
+      setInputValue("1");
+      return;
+    }
+
+    if (parsed > stockQuantity) {
+      showToast.error(
+        `Số lượng tối đa có sẵn là ${stockQuantity} ${product.unit || "sản phẩm"}!`,
+      );
+      setQuantity(stockQuantity);
+      setInputValue(String(stockQuantity));
+      return;
+    }
+
+    setQuantity(parsed);
+    setInputValue(String(parsed));
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    if (raw === "" || /^\d+$/.test(raw)) {
+      setInputValue(raw);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.currentTarget.blur();
+    } else if (e.key === "Escape") {
+      setInputValue(isOutOfStock ? "0" : String(quantity));
+      e.currentTarget.blur();
+    }
+  };
 
   const handleWishlistClick = async () => {
     if (isWishlistLoading) return;
@@ -144,23 +200,32 @@ export default function ProductInfo({
       <div className="space-y-2 pt-2">
         <div className="flex items-center gap-3">
           <span className="text-slate-600 font-medium">Số lượng: </span>
-          <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white">
+          <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white focus-within:border-green-600 focus-within:ring-1 focus-within:ring-green-600/30 transition">
             <button
               type="button"
               disabled={isOutOfStock || quantity <= 1}
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 font-bold disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               -
             </button>
-            <span className="px-4 py-1.5 font-bold text-slate-800">
-              {isOutOfStock ? 0 : quantity}
-            </span>
+            <input
+              type="text"
+              inputMode="numeric"
+              aria-label="Số lượng mua"
+              disabled={isOutOfStock}
+              value={inputValue}
+              onChange={handleInputChange}
+              onBlur={commitQuantity}
+              onKeyDown={handleKeyDown}
+              onFocus={(e) => e.currentTarget.select()}
+              className="w-12 py-1.5 text-center font-bold text-slate-800 border-x border-slate-200 outline-none disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+            />
             <button
               type="button"
               disabled={isOutOfStock || quantity >= stockQuantity}
-              onClick={() => setQuantity(quantity + 1)}
-              className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+              onClick={() => setQuantity(Math.min(stockQuantity, quantity + 1))}
+              className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 font-bold disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               +
             </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -15,6 +15,52 @@ import { wishlistService } from "@/src/services/customer/wishlistService";
 import { showToast } from "@/src/utils/toast";
 import { useWishlist } from "@/src/context/WishlistContext";
 import { useCart } from "@/src/context/CartContext";
+
+const FALLBACK_IMAGE = "/images/Banner1.jpeg";
+
+const getValidImageUrl = (url?: string | null): string => {
+  if (!url || typeof url !== "string" || !url.trim()) {
+    return FALLBACK_IMAGE;
+  }
+
+  let trimmed = url.trim();
+
+  const httpsIndex = trimmed.indexOf("https://");
+  const httpIndex = trimmed.indexOf("http://");
+
+  if (httpsIndex !== -1) {
+    trimmed = trimmed.substring(httpsIndex);
+  } else if (httpIndex !== -1) {
+    trimmed = trimmed.substring(httpIndex);
+  }
+
+  if (trimmed.startsWith("/")) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    try {
+      const parsedUrl = new URL(trimmed);
+
+      const allowedHostnames = [
+        "encrypted-tbn0.gstatic.com",
+        "res.cloudinary.com",
+        "images.unsplash.com",
+        "lotte.vn",
+      ];
+
+      if (allowedHostnames.includes(parsedUrl.hostname)) {
+        return trimmed;
+      }
+
+      return FALLBACK_IMAGE;
+    } catch {
+      return FALLBACK_IMAGE;
+    }
+  }
+
+  return `/${trimmed}`;
+};
 
 export interface ProductProps {
   id: string;
@@ -59,6 +105,11 @@ export default function ProductCard({
 
   const [isWishlistLoading, setIsWishlistLoading] = useState<boolean>(false);
   const [isCartLoading, setIsCartLoading] = useState<boolean>(false);
+  const [imgSrc, setImgSrc] = useState<string>(() => getValidImageUrl(image));
+
+  useEffect(() => {
+    setImgSrc(getValidImageUrl(image));
+  }, [image]);
 
   const checkAuth = (): boolean => {
     if (typeof window === "undefined") return false;
@@ -71,50 +122,6 @@ export default function ProductCard({
       return false;
     }
     return true;
-  };
-
-  const getValidImageUrl = (url?: string | null): string => {
-    if (!url || typeof url !== "string" || !url.trim()) {
-      return "/images/Banner1.jpeg";
-    }
-
-    let trimmed = url.trim();
-
-    const httpsIndex = trimmed.indexOf("https://");
-    const httpIndex = trimmed.indexOf("http://");
-
-    if (httpsIndex !== -1) {
-      trimmed = trimmed.substring(httpsIndex);
-    } else if (httpIndex !== -1) {
-      trimmed = trimmed.substring(httpIndex);
-    }
-
-    if (trimmed.startsWith("/")) {
-      return trimmed;
-    }
-
-    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-      try {
-        const parsedUrl = new URL(trimmed);
-
-        const allowedHostnames = [
-          "encrypted-tbn0.gstatic.com",
-          "res.cloudinary.com",
-          "images.unsplash.com",
-          "lotte.vn",
-        ];
-
-        if (allowedHostnames.includes(parsedUrl.hostname)) {
-          return trimmed;
-        }
-
-        return "/images/Banner1.jpeg";
-      } catch {
-        return "/images/Banner1.jpeg";
-      }
-    }
-
-    return `/${trimmed}`;
   };
 
   const isOutOfStock =
@@ -229,6 +236,9 @@ export default function ProductCard({
     return new Intl.NumberFormat("vi-VN").format(amount);
   };
 
+  const isExternalImage =
+    imgSrc.startsWith("http://") || imgSrc.startsWith("https://");
+
   return (
     <div className="group relative w-full h-full bg-white rounded-lg border border-slate-100 p-2.5 sm:p-3 flex flex-col justify-between hover:shadow-md transition-all duration-200">
       <Link href={`/products/${slug}`} className="flex-1 flex flex-col">
@@ -240,10 +250,16 @@ export default function ProductCard({
           )}
 
           <Image
-            src={getValidImageUrl(image)}
+            src={imgSrc}
             alt={title || "Product image"}
             loading="lazy"
             fill
+            unoptimized={isExternalImage}
+            onError={() => {
+              if (imgSrc !== FALLBACK_IMAGE) {
+                setImgSrc(FALLBACK_IMAGE);
+              }
+            }}
             className={`object-contain p-1 transition-transform duration-300 ease-out ${
               isOutOfStock ? "opacity-75" : "group-hover:scale-105"
             }`}

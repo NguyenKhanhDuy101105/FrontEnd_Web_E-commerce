@@ -80,7 +80,7 @@ const CATEGORY_DATA: CategoryBlock[] = [
         id: "sua-san-pham-tu-sua",
         name: "Sữa, sản phẩm từ sữa",
         imageUrl:
-          "https://images.unsplash.com/photo-1528750997573-59b89d66f4f7?w=300",
+          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRXUtsxG9sZ3wzqvwrh5bg6P2PHSaXyXeEG-mjsWJpgMw&s=10",
         link: "/products?category=sua-san-pham-tu-sua",
       },
       {
@@ -94,7 +94,7 @@ const CATEGORY_DATA: CategoryBlock[] = [
         id: "gao-gia-vi",
         name: "Gạo, gia vị, thực phẩm khô",
         imageUrl:
-          "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=300",
+          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSk5RJ80YI8WoE2q0ZrltzLfJFIk5oL6O7hByrm13EWPw&s=10",
         link: "/products?category=gao-gia-vi",
       },
     ],

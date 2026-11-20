@@ -37,14 +37,26 @@ export default function VoucherSelectModal({
   const [loading, setLoading] = useState<boolean>(false);
   const [inputCode, setInputCode] = useState<string>("");
   const [applyingCode, setApplyingCode] = useState<boolean>(false);
-  const [mounted, setMounted] = useState<boolean>(false);
 
   const [detailVoucher, setDetailVoucher] =
     useState<CustomerVoucherItem | null>(null);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (detailVoucher) {
+          setDetailVoucher(null);
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, detailVoucher, onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -62,7 +74,6 @@ export default function VoucherSelectModal({
           const list = res.data.content;
           setVouchers(list);
 
-          // Tự động tìm & áp dụng voucher tối ưu nhất nếu người dùng chưa chọn mã nào
           if (!selectedVoucherCode && orderAmount > 0) {
             const best = getBestVoucher(list, orderAmount);
             if (best) {
@@ -83,12 +94,11 @@ export default function VoucherSelectModal({
     fetchVouchers();
   }, [isOpen]);
 
-  // Lọc chỉ giữ lại danh sách các voucher khả dụng
   const eligibleVouchers = useMemo(() => {
     return vouchers.filter((v) => isVoucherEligible(v, orderAmount));
   }, [vouchers, orderAmount]);
 
-  if (!isOpen || !mounted) return null;
+  if (!isOpen || typeof document === "undefined") return null;
 
   const handleApplyInputCode = async () => {
     if (!inputCode.trim()) return;
@@ -188,8 +198,14 @@ export default function VoucherSelectModal({
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-9999 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-        <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div
+        onClick={onClose}
+        className="fixed inset-0 z-9999 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        >
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
             <h3 className="text-lg font-bold text-slate-900">
               Khuyến mãi và mã giảm giá
