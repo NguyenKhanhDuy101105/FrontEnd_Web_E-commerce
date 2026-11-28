@@ -118,6 +118,19 @@ export default function OrderDetailModal({
     fetchDetail();
   }, [orderId]);
 
+  useEffect(() => {
+    if (!orderId) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [orderId, onClose]);
+
   if (!orderId) return null;
 
   const handleProductClick = (productId: string) => {
@@ -149,8 +162,14 @@ export default function OrderDetailModal({
     detail?.status === "READY_FOR_PICKUP";
 
   return (
-    <div className="fixed inset-0 z-101 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-      <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-101 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+      >
         <div className="p-4 sm:p-5 border-b border-slate-100 flex items-start justify-between bg-slate-50 gap-3">
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-base sm:text-lg text-slate-800 truncate">

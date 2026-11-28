@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   MapPinIcon,
   PencilSquareIcon,
@@ -15,11 +15,19 @@ import { addressService } from "@/src/services/customer/addressService";
 import { branchService, Branch } from "@/src/services/customer/branchService";
 import { getCoordinatesFromAddress } from "@/src/utils/geocoding";
 import { useBranch } from "@/src/context/BranchContext";
+import { showToast } from "@/src/utils/toast";
+import LoadingSpinner from "@/src/components/common/LoadingSpinner";
+
+const CLICK_COOLDOWN_MS = 5000;
 
 export default function BranchSelector() {
   const router = useRouter();
+  const pathname = usePathname();
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
+  const [isSwitchingBranch, setIsSwitchingBranch] = useState<boolean>(false);
+
+  const lastUnauthClickRef = useRef<number>(0);
 
   const { isAuthenticated } = useAuthGuard();
 
@@ -108,16 +116,37 @@ export default function BranchSelector() {
 
   const handleMainButtonClick = () => {
     if (!isAuthenticated) {
-      router.push("/auth/login");
-    } else {
-      setIsMobileOpen(true);
+      const now = Date.now();
+      if (now - lastUnauthClickRef.current < CLICK_COOLDOWN_MS) {
+        return;
+      }
+
+      lastUnauthClickRef.current = now;
+      showToast.error("Vui lòng đăng nhập để chọn chi nhánh!");
+
+      if (pathname !== "/auth/login") {
+        router.push("/auth/login");
+      }
+      return;
     }
+
+    setIsMobileOpen(true);
   };
 
   const handleSelectBranch = (branch: Branch) => {
-    setSelectedBranch(branch);
     setIsHovered(false);
     setIsMobileOpen(false);
+
+    if (selectedBranch?.id === branch.id) {
+      return;
+    }
+
+    setSelectedBranch(branch);
+    localStorage.setItem("currentBranch", JSON.stringify(branch));
+    localStorage.setItem("branchId", branch.id);
+
+    setIsSwitchingBranch(true);
+    window.location.reload();
   };
 
   const handleGoToAddressPage = () => {
@@ -127,215 +156,225 @@ export default function BranchSelector() {
   };
 
   return (
-    <div
-      className="relative py-2"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <button
-        type="button"
-        onClick={handleMainButtonClick}
-        className="flex items-center space-x-2 text-xs text-slate-600 hover:text-emerald-600 transition-colors focus:outline-none w-full justify-start text-left cursor-pointer"
+    <>
+      {isSwitchingBranch && (
+        <LoadingSpinner
+          fullScreen
+          message="Đang chuyển chi nhánh và làm mới dữ liệu..."
+        />
+      )}
+
+      <div
+        className="relative py-2"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
-        <MapPinIcon className="w-5 h-5 text-emerald-600 shrink-0" />
+        <button
+          type="button"
+          onClick={handleMainButtonClick}
+          className="flex items-center space-x-2 text-xs text-slate-600 hover:text-emerald-600 transition-colors focus:outline-none w-full justify-start text-left cursor-pointer"
+        >
+          <MapPinIcon className="w-5 h-5 text-emerald-600 shrink-0" />
 
-        <div className="flex flex-row md:flex-col items-center md:items-start space-x-1 md:space-x-0 truncate">
-          {isAuthenticated ? (
-            <>
-              <span className="text-[11px] md:text-[10px] text-slate-400 shrink-0">
-                Xem sản phẩm tại
+          <div className="flex flex-row md:flex-col items-center md:items-start space-x-1 md:space-x-0 truncate">
+            {isAuthenticated ? (
+              <>
+                <span className="text-[11px] md:text-[10px] text-slate-400 shrink-0">
+                  Xem sản phẩm tại
+                </span>
+                <span className="font-bold text-slate-800 truncate text-xs md:text-sm max-w-32.5 md:max-w-37.5">
+                  {selectedBranch
+                    ? selectedBranch.name
+                    : "Đang tìm chi nhánh..."}
+                </span>
+              </>
+            ) : (
+              <span className="font-bold text-slate-800 text-xs md:text-sm hover:text-emerald-600 transition-colors">
+                Chọn siêu thị
               </span>
-              <span className="font-bold text-slate-800 truncate text-xs md:text-sm max-w-32.5 md:max-w-37.5">
-                {selectedBranch ? selectedBranch.name : "Đang tìm chi nhánh..."}
-              </span>
-            </>
-          ) : (
-            <span className="font-bold text-slate-800 text-xs md:text-sm hover:text-emerald-600 transition-colors">
-              Chọn siêu thị
-            </span>
+            )}
+          </div>
+
+          {isAuthenticated && (
+            <ChevronDownIcon className="w-3.5 h-3.5 text-slate-500 shrink-0 md:hidden ml-auto" />
           )}
-        </div>
+        </button>
 
-        {isAuthenticated && (
-          <ChevronDownIcon className="w-3.5 h-3.5 text-slate-500 shrink-0 md:hidden ml-auto" />
-        )}
-      </button>
-
-      {isAuthenticated && isHovered && (
-        <div className="hidden md:block absolute right-0 top-full w-96 pt-0.5 z-50">
-          <div className="bg-white rounded-lg shadow-2xl border border-slate-100 p-4 animate-in fade-in slide-in-from-top-1 duration-150">
-            <div className="pb-3 border-b border-slate-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="p-1 bg-emerald-50 text-emerald-600 rounded-lg">
-                    <MapPinIcon className="w-5 h-5" />
+        {isAuthenticated && isHovered && (
+          <div className="hidden md:block absolute right-0 top-full w-96 pt-0.5 z-50">
+            <div className="bg-white rounded-lg shadow-2xl border border-slate-100 p-4 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="pb-3 border-b border-slate-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <div className="p-1 bg-emerald-50 text-emerald-600 rounded-lg">
+                      <MapPinIcon className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-bold text-slate-800 text-sm">
+                      Khu vực giao hàng
+                    </h4>
                   </div>
-                  <h4 className="font-bold text-slate-800 text-sm">
-                    Khu vực giao hàng
-                  </h4>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleGoToAddressPage}
-                  className="flex items-center space-x-1 text-xs font-semibold text-blue-600 hover:text-blue-800 cursor-pointer"
-                >
-                  <PencilSquareIcon className="w-4 h-4" />
-                  <span>Thay đổi</span>
-                </button>
-              </div>
-              <p className="text-xs text-slate-500 mt-2 leading-relaxed pl-1">
-                {userAddress}
-              </p>
-            </div>
-
-            <div className="pt-3">
-              <p className="text-xs font-bold text-slate-700 mb-2.5">
-                {loading
-                  ? "Đang tìm chi nhánh..."
-                  : `${branches.length} siêu thị gần bạn:`}
-              </p>
-              <div className="max-h-64 overflow-y-auto space-y-2.5 pr-1 no-scrollbar">
-                {branches.map((branch) => (
-                  <div
-                    key={branch.id}
-                    onClick={() => handleSelectBranch(branch)}
-                    className={`p-3 rounded-lg border transition-all cursor-pointer ${
-                      selectedBranch?.id === branch.id
-                        ? "border-blue-600 bg-blue-50/40"
-                        : "border-slate-200 hover:bg-slate-50"
-                    }`}
+                  <button
+                    type="button"
+                    onClick={handleGoToAddressPage}
+                    className="flex items-center space-x-1 text-xs font-semibold text-blue-600 hover:text-blue-800 cursor-pointer"
                   >
-                    <div className="flex items-center justify-between">
-                      <h5 className="text-xs font-bold text-slate-800">
-                        {branch.name}
-                      </h5>
-                      <div className="flex items-center space-x-1 text-[11px] font-semibold text-blue-600">
-                        <span>{branch.distanceKm?.toFixed(1)} km</span>
-                        <PaperAirplaneIcon className="w-3.5 h-3.5" />
+                    <PencilSquareIcon className="w-4 h-4" />
+                    <span>Thay đổi</span>
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mt-2 leading-relaxed pl-1">
+                  {userAddress}
+                </p>
+              </div>
+
+              <div className="pt-3">
+                <p className="text-xs font-bold text-slate-700 mb-2.5">
+                  {loading
+                    ? "Đang tìm chi nhánh..."
+                    : `${branches.length} siêu thị gần bạn:`}
+                </p>
+                <div className="max-h-64 overflow-y-auto space-y-2.5 pr-1 no-scrollbar">
+                  {branches.map((branch) => (
+                    <div
+                      key={branch.id}
+                      onClick={() => handleSelectBranch(branch)}
+                      className={`p-3 rounded-lg border transition-all cursor-pointer ${
+                        selectedBranch?.id === branch.id
+                          ? "border-blue-600 bg-blue-50/40"
+                          : "border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-xs font-bold text-slate-800">
+                          {branch.name}
+                        </h5>
+                        <div className="flex items-center space-x-1 text-[11px] font-semibold text-blue-600">
+                          <span>{branch.distanceKm?.toFixed(1)} km</span>
+                          <PaperAirplaneIcon className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                      <div className="flex items-start space-x-2 mt-2">
+                        <MapPinIcon className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-slate-500 leading-snug">
+                          {branch.address}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex items-start space-x-2 mt-2">
-                      <MapPinIcon className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                      <p className="text-[11px] text-slate-500 leading-snug">
-                        {branch.address}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Drawer Mobile */}
-      {isAuthenticated && (
-        <AnimatePresence>
-          {isMobileOpen && (
-            <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="fixed inset-0 bg-black/50"
-                onClick={() => setIsMobileOpen(false)}
-              />
+        {isAuthenticated && (
+          <AnimatePresence>
+            {isMobileOpen && (
+              <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="fixed inset-0 bg-black/50"
+                  onClick={() => setIsMobileOpen(false)}
+                />
 
-              <motion.div
-                initial={{ y: "100%" }}
-                animate={{ y: 0 }}
-                exit={{ y: "100%" }}
-                transition={{ type: "spring", damping: 25, stiffness: 250 }}
-                className="relative bg-white rounded-t-3xl p-5 w-full max-h-[85vh] overflow-y-auto z-10 shadow-2xl flex flex-col"
-              >
-                <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-3 shrink-0" />
+                <motion.div
+                  initial={{ y: "100%" }}
+                  animate={{ y: 0 }}
+                  exit={{ y: "100%" }}
+                  transition={{ type: "spring", damping: 25, stiffness: 250 }}
+                  className="relative bg-white rounded-t-3xl p-5 w-full max-h-[85vh] overflow-y-auto z-10 shadow-2xl flex flex-col"
+                >
+                  <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-3 shrink-0" />
 
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setIsMobileOpen(false)}
-                    className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    <XMarkIcon className="w-6 h-6" />
-                  </button>
-                  <h3 className="font-bold text-slate-800 text-base">
-                    Chọn khu vực của bạn
-                  </h3>
-                  <div className="w-6" />
-                </div>
-
-                <div className="py-4 space-y-4 flex-1">
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-700">
-                        Địa chỉ:
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleGoToAddressPage}
-                        className="flex items-center space-x-1 text-xs font-bold text-[#0d5c3a] cursor-pointer"
-                      >
-                        <PencilSquareIcon className="w-4 h-4" />
-                        <span>Thay đổi</span>
-                      </button>
-                    </div>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      {userAddress}
-                    </p>
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileOpen(false)}
+                      className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <XMarkIcon className="w-6 h-6" />
+                    </button>
+                    <h3 className="font-bold text-slate-800 text-base">
+                      Chọn khu vực của bạn
+                    </h3>
+                    <div className="w-6" />
                   </div>
 
-                  <div>
-                    <p className="text-xs font-bold text-slate-700 mb-3">
-                      {loading
-                        ? "Đang tìm chi nhánh..."
-                        : `${branches.length} siêu thị gần bạn:`}
-                    </p>
-                    <div className="space-y-3">
-                      {branches.map((branch) => {
-                        const isSelected = selectedBranch?.id === branch.id;
-                        return (
-                          <div
-                            key={branch.id}
-                            onClick={() => handleSelectBranch(branch)}
-                            className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
-                              isSelected
-                                ? "border-[#0d5c3a] bg-emerald-50/40 ring-1 ring-[#0d5c3a]"
-                                : "border-slate-200"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <h5 className="text-xs font-bold text-slate-800">
-                                {branch.name}
-                              </h5>
-                              <span className="text-xs font-bold text-[#0d5c3a]">
-                                {branch.distanceKm?.toFixed(1)} km
-                              </span>
+                  <div className="py-4 space-y-4 flex-1">
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700">
+                          Địa chỉ:
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleGoToAddressPage}
+                          className="flex items-center space-x-1 text-xs font-bold text-[#0d5c3a] cursor-pointer"
+                        >
+                          <PencilSquareIcon className="w-4 h-4" />
+                          <span>Thay đổi</span>
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        {userAddress}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-bold text-slate-700 mb-3">
+                        {loading
+                          ? "Đang tìm chi nhánh..."
+                          : `${branches.length} siêu thị gần bạn:`}
+                      </p>
+                      <div className="space-y-3">
+                        {branches.map((branch) => {
+                          const isSelected = selectedBranch?.id === branch.id;
+                          return (
+                            <div
+                              key={branch.id}
+                              onClick={() => handleSelectBranch(branch)}
+                              className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                                isSelected
+                                  ? "border-[#0d5c3a] bg-emerald-50/40 ring-1 ring-[#0d5c3a]"
+                                  : "border-slate-200"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <h5 className="text-xs font-bold text-slate-800">
+                                  {branch.name}
+                                </h5>
+                                <span className="text-xs font-bold text-[#0d5c3a]">
+                                  {branch.distanceKm?.toFixed(1)} km
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-1.5 leading-snug">
+                                {branch.address}
+                              </p>
                             </div>
-                            <p className="text-[11px] text-slate-500 mt-1.5 leading-snug">
-                              {branch.address}
-                            </p>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="pt-3 border-t border-slate-100 mt-auto">
-                  <button
-                    type="button"
-                    onClick={() => setIsMobileOpen(false)}
-                    className="w-full py-3 bg-[#0d5c3a] text-white font-bold text-sm rounded-xl hover:bg-[#094229] transition active:scale-[0.98] cursor-pointer"
-                  >
-                    Mua sắm ngay
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-      )}
-    </div>
+                  <div className="pt-3 border-t border-slate-100 mt-auto">
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileOpen(false)}
+                      className="w-full py-3 bg-[#0d5c3a] text-white font-bold text-sm rounded-xl hover:bg-[#094229] transition active:scale-[0.98] cursor-pointer"
+                    >
+                      Mua sắm ngay
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+        )}
+      </div>
+    </>
   );
 }

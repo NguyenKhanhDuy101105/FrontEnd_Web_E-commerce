@@ -46,8 +46,25 @@ export const BranchProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const initBranch = async () => {
-      const savedBranch = localStorage.getItem("selectedBranch");
+      const currentStaffBranch = localStorage.getItem("currentBranch");
+      if (currentStaffBranch) {
+        try {
+          const parsedCurrent: Branch = JSON.parse(currentStaffBranch);
+          if (parsedCurrent?.id) {
+            setSelectedBranchState(parsedCurrent);
+            localStorage.setItem(
+              "selectedBranch",
+              JSON.stringify(parsedCurrent),
+            );
+            localStorage.setItem("selectedBranchId", parsedCurrent.id);
+            return;
+          }
+        } catch (e) {
+          console.error("Lỗi parse currentBranch từ localStorage:", e);
+        }
+      }
 
+      const savedBranch = localStorage.getItem("selectedBranch");
       if (savedBranch) {
         try {
           const parsed: Branch = JSON.parse(savedBranch);

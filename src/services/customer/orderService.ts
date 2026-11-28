@@ -40,6 +40,8 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  reviewed?: boolean;
+  canReview?: boolean;
 }
 
 export interface OrderSummary {
@@ -54,6 +56,8 @@ export interface OrderSummary {
   totalAmount: number;
   createdAt: string;
   deliveredAt?: string | null;
+  orderReviewed: boolean;
+  canReviewOrder: boolean;
 }
 
 export interface OrderDetail {
@@ -77,7 +81,12 @@ export interface OrderDetail {
   receiveTo?: string;
   deliveredAt?: string | null;
   completedAt?: string | null;
+  cancelReason?: string | null;
+  cancelledAt?: string | null;
   promotionCode?: string | null;
+  orderReviewed?: boolean;
+  canReviewOrder?: boolean;
+  allItemsReviewed?: boolean;
   items: OrderItem[];
 }
 
@@ -109,6 +118,10 @@ export interface CreateOrderPayload {
   shippingLat?: number;
   shippingLng?: number;
   note?: string;
+}
+
+export interface CancelOrderPayload {
+  reason: string;
 }
 
 export const orderService = {
@@ -143,6 +156,17 @@ export const orderService = {
   ): Promise<ApiResponse<OrderDetail>> => {
     const response = await axiosClient.patch<ApiResponse<OrderDetail>>(
       `/api/orders/${orderId}/confirm-received`,
+    );
+    return response.data;
+  },
+
+  cancelOrder: async (
+    orderId: string,
+    reason: string,
+  ): Promise<ApiResponse<OrderDetail>> => {
+    const response = await axiosClient.patch<ApiResponse<OrderDetail>>(
+      `/api/orders/${orderId}/cancel`,
+      { reason },
     );
     return response.data;
   },

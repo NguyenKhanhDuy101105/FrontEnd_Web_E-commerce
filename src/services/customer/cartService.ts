@@ -3,9 +3,11 @@ import axiosClient from "../../lib/axiosClient";
 export interface CartItem {
   itemId: string;
   productId: string;
+  branchId: string;
   productName: string;
   imageUrl: string | null;
   quantity: number;
+  stock: number;
   basePrice: number;
   unitPrice: number;
   discountPercent: number | null;
@@ -16,7 +18,6 @@ export interface CartItem {
 
 export interface CartData {
   cartId: string | null;
-  branchId: string;
   items: CartItem[];
   totalQuantity: number;
   totalAmount: number;
@@ -36,17 +37,16 @@ export interface AddToCartRequest {
 
 export interface UpdateCartItemRequest {
   quantity: number;
+  branchId?: string;
 }
 
 export const cartService = {
   /**
-   * GET: /api/cart?branchId={branchId}
-   * Lấy thông tin giỏ hàng hiện tại của người dùng theo chi nhánh
+   * GET: /api/cart
+   * Lấy thông tin giỏ hàng chung hiện tại của người dùng
    */
-  getCart: async (branchId: string): Promise<ApiResponse<CartData>> => {
-    const response = await axiosClient.get<ApiResponse<CartData>>("/api/cart", {
-      params: { branchId },
-    });
+  getCart: async (): Promise<ApiResponse<CartData>> => {
+    const response = await axiosClient.get<ApiResponse<CartData>>("/api/cart");
     return response.data;
   },
 
@@ -64,7 +64,7 @@ export const cartService = {
 
   /**
    * PATCH: /api/cart/items/{itemId}
-   * Cập nhật số lượng của item trong giỏ hàng
+   * Cập nhật số lượng (hoặc chi nhánh) của item trong giỏ hàng
    */
   updateCartItem: async (
     itemId: string,
@@ -89,16 +89,11 @@ export const cartService = {
   },
 
   /**
-   * DELETE: /api/cart?branchId={branchId}
-   * Xóa toàn bộ giỏ hàng thuộc chi nhánh đang chọn
+   * DELETE: /api/cart
+   * Xóa toàn bộ giỏ hàng của người dùng
    */
-  clearCart: async (branchId: string): Promise<ApiResponse<string>> => {
-    const response = await axiosClient.delete<ApiResponse<string>>(
-      "/api/cart",
-      {
-        params: { branchId },
-      },
-    );
+  clearCart: async (): Promise<ApiResponse<string>> => {
+    const response = await axiosClient.delete<ApiResponse<string>>("/api/cart");
     return response.data;
   },
 };

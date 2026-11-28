@@ -6,7 +6,9 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
+import { usePathname } from "next/navigation";
 import orderService from "@/src/services/customer/orderService";
 
 interface PurchasedItemMap {
@@ -18,6 +20,7 @@ interface PurchasedOrdersContextType {
   loading: boolean;
   hasPurchasedProduct: (productId: string) => boolean;
   getOrderIdForProduct: (productId: string) => string | undefined;
+  ensurePurchasedOrdersLoaded: () => Promise<void>;
   refreshPurchasedOrders: () => Promise<void>;
 }
 
@@ -25,17 +28,27 @@ const PurchasedOrdersContext = createContext<
   PurchasedOrdersContextType | undefined
 >(undefined);
 
+const ROUTES_REQUIRING_PURCHASED_ORDERS = ["/products/", "/account/orders"];
+
 export function PurchasedOrdersProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const [purchasedProductMap, setPurchasedProductMap] =
     useState<PurchasedItemMap>({});
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const hasFetchedRef = useRef<boolean>(false);
+  const inFlightRef = useRef<Promise<void> | null>(null);
 
   const fetchPurchasedOrders = useCallback(async () => {
     if (typeof window === "undefined") return;
+
+    if (inFlightRef.current) {
+      return inFlightRef.current;
+    }
 
     const token =
       localStorage.getItem("accessToken") || localStorage.getItem("token");
@@ -64,52 +77,69 @@ export function PurchasedOrdersProvider({
       return;
     }
 
-    try {
-      setLoading(true);
-      const res = await orderService.getOrders({
-        page: 0,
-        size: 100,
-        group: "COMPLETED",
-      });
-
-      if (res.status === "success" && res.data?.content) {
-        const completedOrders = res.data.content;
-        const productMap: PurchasedItemMap = {};
-
-        const orderDetails = await Promise.all(
-          completedOrders.map((order) =>
-            orderService
-              .getOrderById(order.id)
-              .then((d) => (d.status === "success" ? d.data : null))
-              .catch(() => null),
-          ),
-        );
-
-        orderDetails.forEach((orderDetail) => {
-          if (orderDetail && orderDetail.items) {
-            orderDetail.items.forEach((item) => {
-              if (item.productId && !productMap[item.productId]) {
-                productMap[item.productId] = orderDetail.id;
-              }
-            });
-          }
+    const task = (async () => {
+      try {
+        setLoading(true);
+        const res = await orderService.getOrders({
+          page: 0,
+          size: 100,
+          group: "COMPLETED",
         });
 
-        setPurchasedProductMap(productMap);
-      } else {
+        if (res.status === "success" && res.data?.content) {
+          const completedOrders = res.data.content;
+          const productMap: PurchasedItemMap = {};
+
+          const orderDetails = await Promise.all(
+            completedOrders.map((order) =>
+              orderService
+                .getOrderById(order.id)
+                .then((d) => (d.status === "success" ? d.data : null))
+                .catch(() => null),
+            ),
+          );
+
+          orderDetails.forEach((orderDetail) => {
+            if (orderDetail && orderDetail.items) {
+              orderDetail.items.forEach((item) => {
+                if (item.productId && !productMap[item.productId]) {
+                  productMap[item.productId] = orderDetail.id;
+                }
+              });
+            }
+          });
+
+          setPurchasedProductMap(productMap);
+          hasFetchedRef.current = true;
+        } else {
+          setPurchasedProductMap({});
+        }
+      } catch (error) {
+        console.error("Lỗi khi tải danh sách đơn hàng đã mua:", error);
         setPurchasedProductMap({});
+      } finally {
+        setLoading(false);
+        inFlightRef.current = null;
       }
-    } catch (error) {
-      console.error("Lỗi khi tải danh sách đơn hàng đã mua:", error);
-      setPurchasedProductMap({});
-    } finally {
-      setLoading(false);
-    }
+    })();
+
+    inFlightRef.current = task;
+    return task;
   }, []);
 
-  useEffect(() => {
-    fetchPurchasedOrders();
+  const ensurePurchasedOrdersLoaded = useCallback(async () => {
+    if (hasFetchedRef.current) return;
+    await fetchPurchasedOrders();
   }, [fetchPurchasedOrders]);
+
+  useEffect(() => {
+    const shouldFetch = ROUTES_REQUIRING_PURCHASED_ORDERS.some((prefix) =>
+      pathname?.startsWith(prefix),
+    );
+    if (shouldFetch && !hasFetchedRef.current) {
+      fetchPurchasedOrders();
+    }
+  }, [pathname, fetchPurchasedOrders]);
 
   const hasPurchasedProduct = (productId: string): boolean => {
     return Boolean(purchasedProductMap[productId]);
@@ -126,6 +156,7 @@ export function PurchasedOrdersProvider({
         loading,
         hasPurchasedProduct,
         getOrderIdForProduct,
+        ensurePurchasedOrdersLoaded,
         refreshPurchasedOrders: fetchPurchasedOrders,
       }}
     >

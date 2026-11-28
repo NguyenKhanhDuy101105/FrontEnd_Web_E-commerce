@@ -27,10 +27,16 @@ export default function BranchOrderManagementPage() {
   const [branchId, setBranchId] = useState<string>("");
 
   useEffect(() => {
-    const storedBranchId =
-      localStorage.getItem("branchId") ||
-      "02a024ec-18dc-42b1-8f85-37d893e99581";
-    setBranchId(storedBranchId);
+    let resolvedId = localStorage.getItem("branchId") || "";
+    if (!resolvedId) {
+      try {
+        const savedBranch = JSON.parse(
+          localStorage.getItem("currentBranch") || "{}",
+        );
+        resolvedId = savedBranch?.id || "";
+      } catch {}
+    }
+    setBranchId(resolvedId || "02a024ec-18dc-42b1-8f85-37d893e99581");
   }, []);
 
   const [activeTab, setActiveTab] = useState<string>("ALL");
@@ -51,24 +57,25 @@ export default function BranchOrderManagementPage() {
   const fetchStatusCounts = useCallback(async () => {
     if (!branchId) return;
     try {
-      const totalRes = await branchOrderService.getBranchOrders(branchId, {
-        size: 1,
-      });
-      const countsMap: Record<string, number> = {
-        ALL: totalRes?.data?.totalElements || 0,
-      };
-
-      const results = await Promise.allSettled(
-        STATUSES.map((st) =>
+      const [totalResult, ...statusResults] = await Promise.allSettled([
+        branchOrderService.getBranchOrders(branchId, { size: 1 }),
+        ...STATUSES.map((st) =>
           branchOrderService.getBranchOrders(branchId, {
             status: st,
             size: st === "COMPLETED" ? 100 : 1,
           }),
         ),
-      );
+      ]);
+
+      const countsMap: Record<string, number> = {
+        ALL:
+          totalResult.status === "fulfilled"
+            ? totalResult.value?.data?.totalElements || 0
+            : 0,
+      };
 
       STATUSES.forEach((st, index) => {
-        const res = results[index];
+        const res = statusResults[index];
         if (res.status === "fulfilled" && res.value?.data) {
           countsMap[st] = res.value.data.totalElements || 0;
 
@@ -88,41 +95,75 @@ export default function BranchOrderManagementPage() {
       });
 
       setStatusCounts(countsMap);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("branch-order-status-synced", {
+            detail: { pendingCount: countsMap["PENDING"] || 0 },
+          }),
+        );
+      }
     } catch (err) {
       console.error("Lỗi khi tải số liệu thống kê đơn:", err);
     }
   }, [branchId]);
 
-  const fetchOrders = useCallback(async () => {
-    if (!branchId) return;
-    setLoading(true);
-    try {
-      const trimmedSearch = searchQuery.trim();
-      const res = await branchOrderService.getBranchOrders(branchId, {
-        status:
-          activeTab === "ALL" ? undefined : (activeTab as BranchOrderStatus),
-        page: trimmedSearch ? 0 : page,
-        size: trimmedSearch ? 100 : 15,
-      });
-
-      if (res?.data) {
-        setOrders(res.data.content || []);
-        setTotalPages(res.data.totalPages || 1);
-        setTotalElements(res.data.totalElements || 0);
+  const fetchOrders = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!branchId) return;
+      if (!options?.silent) {
+        setLoading(true);
       }
-    } catch (error) {
-      console.error("Lỗi khi tải danh sách đơn hàng:", error);
-      showToast.error("Không thể tải danh sách đơn hàng từ chi nhánh!");
-    } finally {
-      setLoading(false);
-    }
-  }, [branchId, activeTab, page, searchQuery]);
+      try {
+        const trimmedSearch = searchQuery.trim();
+        const res = await branchOrderService.getBranchOrders(branchId, {
+          status:
+            activeTab === "ALL" ? undefined : (activeTab as BranchOrderStatus),
+          page: trimmedSearch ? 0 : page,
+          size: trimmedSearch ? 100 : 15,
+        });
+
+        if (res?.data) {
+          setOrders(res.data.content || []);
+          setTotalPages(res.data.totalPages || 1);
+          setTotalElements(res.data.totalElements || 0);
+        }
+      } catch (error) {
+        console.error("Lỗi khi tải danh sách đơn hàng:", error);
+        if (!options?.silent) {
+          showToast.error("Không thể tải danh sách đơn hàng từ chi nhánh!");
+        }
+      } finally {
+        if (!options?.silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [branchId, activeTab, page, searchQuery],
+  );
 
   useEffect(() => {
     if (branchId) {
       fetchOrders();
       fetchStatusCounts();
     }
+  }, [branchId, fetchOrders, fetchStatusCounts]);
+
+  useEffect(() => {
+    if (!branchId) return;
+
+    const handleRealtimeOrderUpdate = () => {
+      fetchOrders({ silent: true });
+      fetchStatusCounts();
+    };
+
+    window.addEventListener("branch-order-updated", handleRealtimeOrderUpdate);
+    return () => {
+      window.removeEventListener(
+        "branch-order-updated",
+        handleRealtimeOrderUpdate,
+      );
+    };
   }, [branchId, fetchOrders, fetchStatusCounts]);
 
   const filteredOrders = useMemo(() => {

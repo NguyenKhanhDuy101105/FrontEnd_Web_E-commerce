@@ -99,18 +99,109 @@ export interface UpdateInventoryPayload {
 export interface CreateLotPayload {
   productId: string;
   quantity: number;
+  stockRequestItemId?: string;
   expiryDate: string;
 }
-
 export interface UpdateLotPayload {
   expiryDate: string;
 }
 
+export type InventoryRequestStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "PARTIALLY_APPROVED"
+  | "PARTIALLY_RECEIVED"
+  | "REJECTED"
+  | "COMPLETED"
+  | "CLOSED"
+  | "CANCELLED"
+  | string;
+
+export interface InventoryRequestItem {
+  id: string;
+  productId: string;
+  productSku: string;
+  productName: string;
+  unit: string;
+  requestedQuantity: number;
+  approvedQuantity: number;
+  receivedQuantity: number;
+  remainingQuantity: number;
+}
+
+export interface InventoryRequest {
+  id: string;
+  branchId: string;
+  branchName: string;
+  requestedById: string;
+  requestedByName: string;
+  status: InventoryRequestStatus;
+  reason: string;
+  adminNote: string | null;
+  reviewedById: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  closeNote: string | null;
+  closedById: string | null;
+  closedByName: string | null;
+  closedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items: InventoryRequestItem[];
+}
+
+export interface PageableInventoryRequestsResponse {
+  content: InventoryRequest[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface GetInventoryRequestsParams {
+  page?: number;
+  size?: number;
+}
+
+export interface CreateInventoryRequestItemPayload {
+  productId: string;
+  quantity: number;
+}
+
+export interface CreateInventoryRequestPayload {
+  reason: string;
+  items: CreateInventoryRequestItemPayload[];
+}
+
+export interface SearchInventoryProduct {
+  productId: string;
+  sku: string;
+  productName: string;
+  imageUrl: string | null;
+  unit: string;
+  categoryId: string;
+  categoryName: string;
+  stockQuantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
+  updatedAt: string;
+}
+
+export interface PageableSearchInventoryResponse {
+  content: SearchInventoryProduct[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface SearchBranchInventoryParams {
+  keyword: string;
+  page?: number;
+  size?: number;
+}
+
 export const branchInventoryService = {
-  /**
-   * 1. GET /api/branches/{branchId}/inventory/categories
-   * Lấy danh sách danh mục tồn kho của chi nhánh
-   */
   getInventoryCategories: async (
     branchId: string,
   ): Promise<ApiResponse<CategoryInventory[]>> => {
@@ -120,10 +211,6 @@ export const branchInventoryService = {
     return response.data;
   },
 
-  /**
-   * 2. GET /api/branches/{branchId}/inventory/by-categories
-   * Lấy chi tiết tồn kho phân nhóm theo danh mục & sản phẩm
-   */
   getInventoryByCategories: async (
     branchId: string,
   ): Promise<ApiResponse<InventoryByCategoriesData>> => {
@@ -133,10 +220,6 @@ export const branchInventoryService = {
     return response.data;
   },
 
-  /**
-   * 3. GET /api/branches/{branchId}/inventory/summary
-   * Lấy tổng quan (thống kê) tồn kho của chi nhánh
-   */
   getInventorySummary: async (
     branchId: string,
   ): Promise<ApiResponse<InventorySummary>> => {
@@ -146,10 +229,6 @@ export const branchInventoryService = {
     return response.data;
   },
 
-  /**
-   * 4. GET /api/branches/{branchId}/inventory/{productId}/lots
-   * Lấy danh sách các lô hàng của 1 sản phẩm tại chi nhánh
-   */
   getProductLots: async (
     branchId: string,
     productId: string,
@@ -160,10 +239,6 @@ export const branchInventoryService = {
     return response.data;
   },
 
-  /**
-   * 5. PUT /api/branches/{branchId}/inventory
-   * Cập nhật số lượng tồn kho của sản phẩm tại chi nhánh (Điều chỉnh / Hỏng / Hết hạn...)
-   */
   updateInventory: async (
     branchId: string,
     payload: UpdateInventoryPayload,
@@ -175,10 +250,6 @@ export const branchInventoryService = {
     return response.data;
   },
 
-  /**
-   * 6. POST /api/branches/{branchId}/inventory/lots
-   * Nhập / Tạo mới lô hàng cho sản phẩm tại chi nhánh
-   */
   createLot: async (
     branchId: string,
     payload: CreateLotPayload,
@@ -190,10 +261,6 @@ export const branchInventoryService = {
     return response.data;
   },
 
-  /**
-   * 7. PATCH /api/branches/{branchId}/inventory/lots/{lotId}
-   * Cập nhật ngày hết hạn cho lô hàng
-   */
   updateLotExpiry: async (
     branchId: string,
     lotId: string,
@@ -203,6 +270,68 @@ export const branchInventoryService = {
       `/api/branches/${branchId}/inventory/lots/${lotId}`,
       payload,
     );
+    return response.data;
+  },
+
+  getInventoryRequests: async (
+    branchId: string,
+    params?: GetInventoryRequestsParams,
+  ): Promise<ApiResponse<PageableInventoryRequestsResponse>> => {
+    const response = await axiosClient.get<
+      ApiResponse<PageableInventoryRequestsResponse>
+    >(`/api/branches/${branchId}/inventory-requests`, {
+      params: {
+        page: params?.page ?? 0,
+        size: params?.size ?? 20,
+      },
+    });
+    return response.data;
+  },
+
+  getInventoryRequestDetail: async (
+    branchId: string,
+    requestId: string,
+  ): Promise<ApiResponse<InventoryRequest>> => {
+    const response = await axiosClient.get<ApiResponse<InventoryRequest>>(
+      `/api/branches/${branchId}/inventory-requests/${requestId}`,
+    );
+    return response.data;
+  },
+
+  createInventoryRequest: async (
+    branchId: string,
+    payload: CreateInventoryRequestPayload,
+  ): Promise<ApiResponse<InventoryRequest>> => {
+    const response = await axiosClient.post<ApiResponse<InventoryRequest>>(
+      `/api/branches/${branchId}/inventory-requests`,
+      payload,
+    );
+    return response.data;
+  },
+
+  deleteInventoryRequest: async (
+    branchId: string,
+    requestId: string,
+  ): Promise<ApiResponse<InventoryRequest>> => {
+    const response = await axiosClient.delete<ApiResponse<InventoryRequest>>(
+      `/api/branches/${branchId}/inventory-requests/${requestId}`,
+    );
+    return response.data;
+  },
+
+  searchBranchInventory: async (
+    branchId: string,
+    params: SearchBranchInventoryParams,
+  ): Promise<ApiResponse<PageableSearchInventoryResponse>> => {
+    const response = await axiosClient.get<
+      ApiResponse<PageableSearchInventoryResponse>
+    >(`/api/branches/${branchId}/inventory/search`, {
+      params: {
+        keyword: params.keyword,
+        page: params.page ?? 0,
+        size: params.size ?? 20,
+      },
+    });
     return response.data;
   },
 };

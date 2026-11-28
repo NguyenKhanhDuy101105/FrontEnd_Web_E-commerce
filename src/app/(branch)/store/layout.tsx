@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Squares2X2Icon,
@@ -17,6 +17,12 @@ import {
 } from "@heroicons/react/24/outline";
 import { getUserFromStorage, User } from "@/src/utils/getUser";
 import { useAuthGuard } from "@/src/hooks/useAuthGuard";
+import {
+  useBranchOrderWebSocket,
+  BranchOrderRealtimeEvent,
+} from "@/src/hooks/useBranchOrderWebSocket";
+import { branchOrderService } from "@/src/services/store/branchOrderService";
+import { showToast } from "@/src/utils/toast";
 import Cookies from "js-cookie";
 
 import BranchSidebarHeader from "./components/BranchSidebarHeader";
@@ -47,6 +53,7 @@ export default function BranchPortalLayout({
   const [isMounted, setIsMounted] = useState<boolean>(false);
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState<number>(0);
 
   useEffect(() => {
     setIsMounted(true);
@@ -66,9 +73,105 @@ export default function BranchPortalLayout({
     }
   }, []);
 
+  const fetchPendingOrdersCount = useCallback(async () => {
+    const activeBranchId =
+      currentBranch?.id ||
+      (typeof window !== "undefined" ? localStorage.getItem("branchId") : null);
+
+    if (!activeBranchId) return;
+
+    try {
+      const res = await branchOrderService.getBranchOrders(activeBranchId, {
+        status: "PENDING",
+        page: 0,
+        size: 1,
+      });
+
+      if (res.status === "success" && res.data) {
+        const total = res.data.totalElements ?? res.data.content?.length ?? 0;
+        setPendingOrdersCount(total);
+      }
+    } catch (error) {
+      console.error("Lỗi lấy số lượng đơn hàng chờ xác nhận:", error);
+    }
+  }, [currentBranch?.id]);
+
+  const handleRealtimeOrderEvent = useCallback(
+    (payload: BranchOrderRealtimeEvent) => {
+      const isNewPendingOrder =
+        !payload?.status ||
+        payload.status === "PENDING" ||
+        payload.type === "NEW_ORDER";
+
+      if (isNewPendingOrder) {
+        setPendingOrdersCount((prev) => prev + 1);
+        const orderCodeText = payload?.orderCode
+          ? ` (${payload.orderCode})`
+          : "";
+        showToast.info(
+          payload?.message || `Có 1 đơn hàng mới${orderCodeText} vừa được đặt!`,
+        );
+      } else {
+        setPendingOrdersCount((prev) => Math.max(0, prev - 1));
+      }
+
+      fetchPendingOrdersCount();
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("branch-order-updated", { detail: payload }),
+        );
+      }
+    },
+    [fetchPendingOrdersCount],
+  );
+
+  useBranchOrderWebSocket({
+    enabled: isMounted && !isChecking,
+    onOrderEvent: handleRealtimeOrderEvent,
+  });
+
+  useEffect(() => {
+    if (!isMounted || isChecking) return;
+
+    fetchPendingOrdersCount();
+
+    const handleStatusSynced = (event: Event) => {
+      const customEvent = event as CustomEvent<{ pendingCount?: number }>;
+      if (typeof customEvent.detail?.pendingCount === "number") {
+        setPendingOrdersCount(customEvent.detail.pendingCount);
+      } else {
+        fetchPendingOrdersCount();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchPendingOrdersCount();
+      }
+    };
+
+    window.addEventListener("branch-order-status-synced", handleStatusSynced);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener(
+        "branch-order-status-synced",
+        handleStatusSynced,
+      );
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isMounted, isChecking, pathname, fetchPendingOrdersCount]);
+
   useEffect(() => {
     setIsMobileOpen(false);
   }, [pathname]);
+
+  const formattedOrderBadge =
+    pendingOrdersCount > 99
+      ? "99+"
+      : pendingOrdersCount > 0
+        ? String(pendingOrdersCount)
+        : "";
 
   const navItems = [
     { name: "Tổng quan", href: "/store", icon: Squares2X2Icon },
@@ -76,14 +179,14 @@ export default function BranchPortalLayout({
       name: "Đơn hàng Trực tuyến",
       href: "/store/orders",
       icon: ShoppingBagIcon,
-      badge: "12",
+      badge: formattedOrderBadge,
       badgeColor: "bg-[#10b981] text-white",
     },
     {
       name: "Tư vấn & Chat",
       href: "/store/chats",
       icon: ChatBubbleLeftRightIcon,
-      badge: "4",
+      badge: "",
       badgeColor: "bg-[#f59e0b] text-white",
     },
     {
@@ -95,14 +198,14 @@ export default function BranchPortalLayout({
       name: "Yêu cầu Nhập hàng",
       href: "/store/import-requests",
       icon: ArrowDownOnSquareIcon,
-      badge: "2",
+      badge: "",
       badgeColor: "bg-[#10b981] text-white",
     },
     {
       name: "Báo cáo Dự báo AI",
       href: "/store/ai-report",
       icon: SparklesIcon,
-      badge: "AI",
+      badge: "",
       badgeColor:
         "bg-emerald-900/80 text-emerald-300 font-bold border border-emerald-500/40",
     },
@@ -121,7 +224,7 @@ export default function BranchPortalLayout({
     localStorage.removeItem("user");
     localStorage.removeItem("branchId");
     localStorage.removeItem("currentBranch");
-
+    localStorage.clear();
     Cookies.remove("token", { path: "/" });
     Cookies.remove("role", { path: "/" });
     Cookies.remove("branchId", { path: "/" });

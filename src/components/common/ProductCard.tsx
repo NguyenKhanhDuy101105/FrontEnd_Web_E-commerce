@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -98,10 +98,23 @@ export default function ProductCard({
   const router = useRouter();
   const pathname = usePathname();
   const { isWishlisted, addWishlistId, removeWishlistId } = useWishlist();
-  const { getItemQuantity, addToCart, updateQuantity } = useCart();
+  const { cartItems, getItemQuantity, addToCart, updateQuantity } = useCart();
 
   const wishlist = isWishlisted(id);
-  const cartQuantity = getItemQuantity(id);
+  const cartItem = cartItems.find((item) => item.productId === id);
+  const cartQuantity = cartItem ? cartItem.quantity : getItemQuantity(id);
+
+  const effectiveMaxStock =
+    typeof stockQuantity === "number"
+      ? stockQuantity
+      : typeof cartItem?.stock === "number"
+        ? cartItem.stock
+        : undefined;
+
+  const isAtMaxStock =
+    typeof effectiveMaxStock === "number" &&
+    effectiveMaxStock > 0 &&
+    cartQuantity >= effectiveMaxStock;
 
   const [isWishlistLoading, setIsWishlistLoading] = useState<boolean>(false);
   const [isCartLoading, setIsCartLoading] = useState<boolean>(false);
@@ -110,6 +123,29 @@ export default function ProductCard({
   useEffect(() => {
     setImgSrc(getValidImageUrl(image));
   }, [image]);
+
+  const effectiveDiscountPercent = useMemo(() => {
+    if (typeof discountPercent === "number" && discountPercent > 0) {
+      const normalized =
+        discountPercent < 1 ? discountPercent * 100 : discountPercent;
+      return Math.round(normalized);
+    }
+
+    if (
+      typeof originalPrice === "number" &&
+      originalPrice > 0 &&
+      price < originalPrice
+    ) {
+      const calculated = Math.round(
+        ((originalPrice - price) / originalPrice) * 100,
+      );
+      return calculated > 0 ? calculated : 0;
+    }
+
+    return 0;
+  }, [discountPercent, originalPrice, price]);
+
+  const hasDiscount = effectiveDiscountPercent > 0;
 
   const checkAuth = (): boolean => {
     if (typeof window === "undefined") return false;
@@ -129,8 +165,8 @@ export default function ProductCard({
       ? externalIsOutOfStock
       : inStock !== undefined
         ? !inStock
-        : stockQuantity !== undefined
-          ? stockQuantity <= 0
+        : effectiveMaxStock !== undefined
+          ? effectiveMaxStock <= 0
           : false;
 
   const handleWishlistClick = async (e: React.MouseEvent) => {
@@ -207,11 +243,12 @@ export default function ProductCard({
     e.stopPropagation();
 
     if (!checkAuth()) return;
-    if (isCartLoading) return;
+    if (isCartLoading || isAtMaxStock) return;
 
     setIsCartLoading(true);
     try {
       await updateQuantity(id, cartQuantity + 1);
+    } catch {
     } finally {
       setIsCartLoading(false);
     }
@@ -227,6 +264,7 @@ export default function ProductCard({
     setIsCartLoading(true);
     try {
       await updateQuantity(id, cartQuantity - 1);
+    } catch {
     } finally {
       setIsCartLoading(false);
     }
@@ -240,15 +278,21 @@ export default function ProductCard({
     imgSrc.startsWith("http://") || imgSrc.startsWith("https://");
 
   return (
-    <div className="group relative w-full h-full bg-white rounded-lg border border-slate-100 p-2.5 sm:p-3 flex flex-col justify-between hover:shadow-md transition-all duration-200">
+    <div className="group relative w-full h-full bg-white rounded-lg border border-slate-100 p-2.5 sm:p-3 flex flex-col justify-between hover:shadow-md transition-all duration-200 overflow-hidden">
+      {hasDiscount && (
+        <div
+          className={`absolute top-0 right-0 z-20 px-2 py-1 rounded-bl-xl font-extrabold text-[11px] sm:text-xs tracking-tight shadow-xs select-none pointer-events-none ${
+            isOutOfStock
+              ? "bg-rose-500/80 text-white"
+              : "bg-linear-to-r from-rose-600 to-red-500 text-white"
+          }`}
+        >
+          -{effectiveDiscountPercent}%
+        </div>
+      )}
+
       <Link href={`/products/${slug}`} className="flex-1 flex flex-col">
         <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-white mb-2 shrink-0">
-          {discountPercent && !isOutOfStock && (
-            <div className="absolute top-0 right-0 z-10 bg-red-500 text-white font-bold text-[10px] sm:text-xs px-1.5 py-0.5 rounded-bl-md">
-              -{discountPercent}%
-            </div>
-          )}
-
           <Image
             src={imgSrc}
             alt={title || "Product image"}
@@ -312,7 +356,7 @@ export default function ProductCard({
             )}
           </div>
 
-          {originalPrice && (
+          {originalPrice && originalPrice > price && (
             <div className="flex items-center space-x-1.5 text-[10px] sm:text-xs mt-0.5">
               <span className="line-through text-slate-400 font-medium">
                 {formatCurrency(originalPrice)} đ
@@ -349,10 +393,14 @@ export default function ProductCard({
 
             <button
               type="button"
-              disabled={isCartLoading}
+              disabled={isCartLoading || isAtMaxStock}
               onClick={handleIncreaseQuantity}
-              className="w-7 h-7 flex items-center justify-center text-[#0d5c3a] hover:bg-emerald-50 rounded-md transition-colors cursor-pointer active:scale-95 disabled:opacity-50"
-              title="Tăng số lượng"
+              className="w-7 h-7 flex items-center justify-center text-[#0d5c3a] hover:bg-emerald-50 rounded-md transition-colors cursor-pointer active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              title={
+                isAtMaxStock
+                  ? `Đã đạt tối đa tồn kho (${effectiveMaxStock})`
+                  : "Tăng số lượng"
+              }
             >
               <PlusIcon className="w-4 h-4 stroke-[2.5]" />
             </button>

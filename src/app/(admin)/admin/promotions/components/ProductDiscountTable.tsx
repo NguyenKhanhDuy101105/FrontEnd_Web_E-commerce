@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -10,85 +10,175 @@ import {
 } from "@heroicons/react/24/outline";
 import { ProductDiscountItem } from "@/src/services/admin/adminProductDiscountService";
 
+export interface DiscountProductItem {
+  id: string;
+  name: string;
+  sku?: string;
+  unit?: string;
+  basePrice?: number;
+  categoryId: string;
+}
+
+export interface DiscountCategoryNode {
+  id: string;
+  name: string;
+  children?: DiscountCategoryNode[];
+}
+
 interface ProductDiscountTableProps {
-  products: any[];
-  categories: any[];
+  products: DiscountProductItem[];
+  categories: DiscountCategoryNode[];
   selectedL1Id: string;
   discounts: ProductDiscountItem[];
+  searchTerm?: string;
   onOpenAddDiscount: (target: {
     type: "SINGLE_PRODUCT" | "CATEGORY";
     titleName: string;
     productIds: string[];
   }) => void;
   onOpenDeleteDiscount: (discount: ProductDiscountItem) => void;
+  onOpenBulkDeleteDiscount: (target: {
+    titleName: string;
+    discounts: ProductDiscountItem[];
+  }) => void;
 }
+
+const getAllSubCategoryIds = (cat: DiscountCategoryNode): string[] => {
+  let ids: string[] = [cat.id];
+  if (cat.children && Array.isArray(cat.children)) {
+    cat.children.forEach((child: DiscountCategoryNode) => {
+      ids = ids.concat(getAllSubCategoryIds(child));
+    });
+  }
+  return ids;
+};
 
 export default function ProductDiscountTable({
   products,
   categories,
   selectedL1Id,
   discounts,
+  searchTerm = "",
   onOpenAddDiscount,
   onOpenDeleteDiscount,
+  onOpenBulkDeleteDiscount,
 }: ProductDiscountTableProps) {
-  const discountMap = new Map<string, ProductDiscountItem>();
-  discounts.forEach((d) => discountMap.set(d.productId, d));
+  const discountsByProductMap = useMemo(() => {
+    const map = new Map<string, ProductDiscountItem[]>();
+    discounts.forEach((d) => {
+      const existing = map.get(d.productId) || [];
+      existing.push(d);
+      map.set(d.productId, existing);
+    });
+    return map;
+  }, [discounts]);
 
-  const currentL1 = categories.find((c) => c.id === selectedL1Id);
-
-  const getAllSubCategoryIds = (cat: any): string[] => {
-    let ids: string[] = [cat.id];
-    if (cat.children && Array.isArray(cat.children)) {
-      cat.children.forEach((child: any) => {
-        ids = ids.concat(getAllSubCategoryIds(child));
-      });
-    }
-    return ids;
-  };
-
-  const l2Categories = currentL1?.children || [];
-  const groupList: Array<{
-    id: string;
-    parentName: string;
-    subName: string;
-    categoryIds: string[];
-  }> = [];
-
-  l2Categories.forEach((l2: any) => {
-    if (l2.children && Array.isArray(l2.children) && l2.children.length > 0) {
-      l2.children.forEach((l3: any) => {
-        groupList.push({
-          id: l3.id,
-          parentName: l2.name,
-          subName: l3.name,
-          categoryIds: getAllSubCategoryIds(l3),
-        });
-      });
-    } else {
-      groupList.push({
-        id: l2.id,
-        parentName: currentL1?.name || "",
-        subName: l2.name,
-        categoryIds: getAllSubCategoryIds(l2),
-      });
-    }
-  });
-
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
-    {},
+  const currentL1 = useMemo(
+    () => categories.find((c) => c.id === selectedL1Id),
+    [categories, selectedL1Id],
   );
 
-  const toggleGroup = (groupId: string) => {
-    setExpandedGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
+  const groupList = useMemo(() => {
+    const l2Categories = currentL1?.children || [];
+    const list: Array<{
+      id: string;
+      parentName: string;
+      subName: string;
+      categoryIds: string[];
+    }> = [];
+
+    l2Categories.forEach((l2: DiscountCategoryNode) => {
+      if (l2.children && Array.isArray(l2.children) && l2.children.length > 0) {
+        l2.children.forEach((l3: DiscountCategoryNode) => {
+          list.push({
+            id: l3.id,
+            parentName: l2.name,
+            subName: l3.name,
+            categoryIds: getAllSubCategoryIds(l3),
+          });
+        });
+      } else {
+        list.push({
+          id: l2.id,
+          parentName: currentL1?.name || "",
+          subName: l2.name,
+          categoryIds: getAllSubCategoryIds(l2),
+        });
+      }
+    });
+
+    return list;
+  }, [currentL1]);
+
+  const [manualExpanded, setManualExpanded] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [searchOverrides, setSearchOverrides] = useState<{
+    term: string;
+    overrides: Record<string, boolean>;
+  }>({ term: "", overrides: {} });
+
+  const normalizedSearch = searchTerm.trim();
+  const isSearching = normalizedSearch.length > 0;
+
+  const toggleGroup = (groupId: string, currentExpanded: boolean) => {
+    const nextState = !currentExpanded;
+    if (isSearching) {
+      setSearchOverrides((prev) => ({
+        term: normalizedSearch,
+        overrides: {
+          ...(prev.term === normalizedSearch ? prev.overrides : {}),
+          [groupId]: nextState,
+        },
+      }));
+    } else {
+      setManualExpanded((prev) => ({
+        ...prev,
+        [groupId]: nextState,
+      }));
+    }
   };
+
+  if (!currentL1 || !currentL1.children || currentL1.children.length === 0) {
+    return (
+      <div className="py-12 text-center text-slate-400 text-xs font-medium bg-white rounded-xl border border-slate-200/80 shadow-xs">
+        Không có danh mục con nào trong nhóm này.
+      </div>
+    );
+  }
+
+  const visibleGroups = groupList
+    .map((group) => {
+      const groupProducts = products.filter((p) =>
+        group.categoryIds.includes(p.categoryId),
+      );
+      return {
+        ...group,
+        groupProducts,
+      };
+    })
+    .filter((group) => !isSearching || group.groupProducts.length > 0);
 
   return (
     <div className="space-y-3">
-      {groupList.map((group) => {
-        const groupProducts = products.filter((p) =>
-          group.categoryIds.includes(p.categoryId),
+      {visibleGroups.map((group) => {
+        const { groupProducts } = group;
+
+        const groupDiscounts = groupProducts.flatMap(
+          (p) => discountsByProductMap.get(p.id) || [],
         );
-        const isExpanded = !!expandedGroups[group.id];
+        const discountedProductsCount = groupProducts.filter(
+          (p) => (discountsByProductMap.get(p.id)?.length || 0) > 0,
+        ).length;
+
+        const isExpanded = isSearching
+          ? searchOverrides.term === normalizedSearch &&
+            group.id in searchOverrides.overrides
+            ? searchOverrides.overrides[group.id]
+            : groupProducts.length > 0
+          : Boolean(manualExpanded[group.id]);
+
+        const groupTitle = `${group.parentName} / ${group.subName}`;
 
         return (
           <div
@@ -97,7 +187,7 @@ export default function ProductDiscountTable({
           >
             <div className="flex items-center justify-between p-3.5 bg-white hover:bg-slate-50/50 transition-colors gap-2">
               <div
-                onClick={() => toggleGroup(group.id)}
+                onClick={() => toggleGroup(group.id, isExpanded)}
                 className="flex items-center gap-2 cursor-pointer flex-1 min-w-0"
               >
                 <button type="button" className="text-slate-400 shrink-0">
@@ -115,32 +205,66 @@ export default function ProductDiscountTable({
                   <span className="text-xs font-black text-slate-800 uppercase truncate max-w-28 sm:max-w-none">
                     {group.subName}
                   </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-[#0d5c3a] whitespace-nowrap shrink-0">
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 ${
+                      groupProducts.length > 0
+                        ? "bg-emerald-100 text-[#0d5c3a]"
+                        : "bg-rose-50 text-rose-600"
+                    }`}
+                  >
                     <span className="inline sm:hidden">
-                      {groupProducts.length} sp
+                      {isSearching
+                        ? `${groupProducts.length} kq`
+                        : `${groupProducts.length} sp`}
                     </span>
                     <span className="hidden sm:inline">
-                      {groupProducts.length} sản phẩm
+                      {isSearching
+                        ? `${groupProducts.length} kết quả`
+                        : `${groupProducts.length} sản phẩm`}
                     </span>
                   </span>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  onOpenAddDiscount({
-                    type: "CATEGORY",
-                    titleName: `${group.parentName} / ${group.subName}`,
-                    productIds: groupProducts.map((p) => p.id),
-                  })
-                }
-                title="Thêm khuyến mãi"
-                className="flex items-center justify-center gap-1 text-xs font-bold text-[#0d5c3a] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 p-2 sm:px-3 sm:py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 whitespace-nowrap"
-              >
-                <PlusIcon className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-3" />
-                <span className="hidden sm:inline">Thêm khuyến mãi</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {groupDiscounts.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onOpenBulkDeleteDiscount({
+                        titleName: groupTitle,
+                        discounts: groupDiscounts,
+                      })
+                    }
+                    title={`Gỡ tất cả khuyến mãi (${discountedProductsCount} sản phẩm)`}
+                    className="flex items-center justify-center gap-1 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200/70 px-2.5 py-2 sm:px-3 sm:py-1.5 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <TrashIcon className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                    <span className="inline sm:hidden">
+                      {discountedProductsCount}
+                    </span>
+                    <span className="hidden sm:inline">
+                      Gỡ khuyến mãi ({discountedProductsCount})
+                    </span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    onOpenAddDiscount({
+                      type: "CATEGORY",
+                      titleName: groupTitle,
+                      productIds: groupProducts.map((p) => p.id),
+                    })
+                  }
+                  title="Thêm khuyến mãi"
+                  className="flex items-center justify-center gap-1 text-xs font-bold text-[#0d5c3a] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 p-2 sm:px-3 sm:py-1.5 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <PlusIcon className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-3" />
+                  <span className="hidden sm:inline">Thêm khuyến mãi</span>
+                </button>
+              </div>
             </div>
 
             {isExpanded && (
@@ -152,8 +276,10 @@ export default function ProductDiscountTable({
                 ) : (
                   <>
                     <div className="block lg:hidden divide-y divide-slate-100 bg-slate-50/50 max-h-60 overflow-y-auto">
-                      {groupProducts.map((prod: any) => {
-                        const activeDiscount = discountMap.get(prod.id);
+                      {groupProducts.map((prod: DiscountProductItem) => {
+                        const prodDiscounts =
+                          discountsByProductMap.get(prod.id) || [];
+                        const activeDiscount = prodDiscounts[0];
 
                         let percentDecimal = 0;
                         if (activeDiscount) {
@@ -294,8 +420,10 @@ export default function ProductDiscountTable({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 font-medium">
-                          {groupProducts.map((prod: any) => {
-                            const activeDiscount = discountMap.get(prod.id);
+                          {groupProducts.map((prod: DiscountProductItem) => {
+                            const prodDiscounts =
+                              discountsByProductMap.get(prod.id) || [];
+                            const activeDiscount = prodDiscounts[0];
 
                             let percentDecimal = 0;
                             if (activeDiscount) {
@@ -403,6 +531,17 @@ export default function ProductDiscountTable({
           </div>
         );
       })}
+
+      {isSearching && visibleGroups.length === 0 && (
+        <div className="bg-white p-8 rounded-xl border border-slate-200/80 shadow-xs text-center space-y-2">
+          <p className="text-xs font-bold text-slate-700">
+            Không có sản phẩm nào phù hợp trong danh mục
+          </p>
+          <p className="text-[11px] text-slate-400">
+            Vui lòng chọn danh mục khác hoặc thử từ khóa tìm kiếm khác.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

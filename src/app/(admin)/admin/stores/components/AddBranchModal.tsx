@@ -6,6 +6,12 @@ import {
   SaveAdminBranchRequest,
 } from "@/src/services/admin/adminBranchService";
 import { showToast } from "@/src/utils/toast";
+import {
+  BuildingStorefrontIcon,
+  MapPinIcon,
+  ClockIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 
 interface AddBranchModalProps {
   isOpen: boolean;
@@ -66,6 +72,45 @@ const parseTimeRange = (range?: string): { open: string; close: string } => {
   };
 };
 
+const buildInitialFormState = (
+  initialData?: AdminBranchItem | null,
+): SaveAdminBranchRequest => {
+  if (initialData) {
+    const mergedHours: Record<string, string> = { ...DEFAULT_OPENING_HOURS };
+    if (initialData.openingHours) {
+      for (const day of DAYS_OF_WEEK) {
+        if (initialData.openingHours[day.key]) {
+          mergedHours[day.key] = initialData.openingHours[day.key];
+        }
+      }
+    }
+
+    return {
+      name: initialData.name.slice(0, 150),
+      address: initialData.address.slice(0, 255),
+      lat: initialData.lat,
+      lng: initialData.lng,
+      phone: sanitizePhone(initialData.phone),
+      deliveryRadiusKm: initialData.deliveryRadiusKm,
+      isWarehouse: initialData.isWarehouse,
+      openingHours: mergedHours,
+      status: initialData.status,
+    };
+  }
+
+  return {
+    name: "",
+    address: "",
+    lat: 21.02851,
+    lng: 105.804817,
+    phone: "",
+    deliveryRadiusKm: 5,
+    isWarehouse: false,
+    openingHours: { ...DEFAULT_OPENING_HOURS },
+    status: "ACTIVE",
+  };
+};
+
 export default function AddBranchModal({
   isOpen,
   onClose,
@@ -76,17 +121,9 @@ export default function AddBranchModal({
   const isNameComposingRef = useRef(false);
   const isAddressComposingRef = useRef(false);
 
-  const [formData, setFormData] = useState<SaveAdminBranchRequest>({
-    name: "",
-    address: "",
-    lat: 21.02851,
-    lng: 105.804817,
-    phone: "",
-    deliveryRadiusKm: 5,
-    isWarehouse: false,
-    openingHours: { ...DEFAULT_OPENING_HOURS },
-    status: "ACTIVE",
-  });
+  const [formData, setFormData] = useState<SaveAdminBranchRequest>(() =>
+    buildInitialFormState(initialData),
+  );
 
   const [errors, setErrors] = useState<{
     name?: string;
@@ -97,42 +134,11 @@ export default function AddBranchModal({
   }>({});
 
   useEffect(() => {
+    if (!isOpen) return;
     setErrors({});
-    if (initialData) {
-      const mergedHours: Record<string, string> = { ...DEFAULT_OPENING_HOURS };
-      if (initialData.openingHours) {
-        for (const day of DAYS_OF_WEEK) {
-          if (initialData.openingHours[day.key]) {
-            mergedHours[day.key] = initialData.openingHours[day.key];
-          }
-        }
-      }
-
-      setFormData({
-        name: initialData.name.slice(0, 150),
-        address: initialData.address.slice(0, 255),
-        lat: initialData.lat,
-        lng: initialData.lng,
-        phone: sanitizePhone(initialData.phone),
-        deliveryRadiusKm: initialData.deliveryRadiusKm,
-        isWarehouse: initialData.isWarehouse,
-        openingHours: mergedHours,
-        status: initialData.status,
-      });
-    } else {
-      setFormData({
-        name: "",
-        address: "",
-        lat: 21.02851,
-        lng: 105.804817,
-        phone: "",
-        deliveryRadiusKm: 5,
-        isWarehouse: false,
-        openingHours: { ...DEFAULT_OPENING_HOURS },
-        status: "ACTIVE",
-      });
-    }
-  }, [initialData, isOpen]);
+    setFormData(buildInitialFormState(initialData));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData?.id, isOpen]);
 
   if (!isOpen) return null;
 
@@ -285,211 +291,241 @@ export default function AddBranchModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl max-w-xl w-full p-5 space-y-4 shadow-xl border border-slate-200 my-auto max-h-[92vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b pb-3">
-          <h3 className="font-bold text-slate-900 text-sm">
-            {initialData ? "Chỉnh sửa chi nhánh" : "Thêm chi nhánh mới"}
-          </h3>
+    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200/80 my-auto max-h-[92vh] flex flex-col overflow-hidden">
+        {/* Header cố định */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/70 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <BuildingStorefrontIcon className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm sm:text-base">
+                {initialData ? "Chỉnh sửa chi nhánh" : "Thêm chi nhánh mới"}
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Thiết lập thông tin vận hành, tọa độ và khung giờ mở cửa
+              </p>
+            </div>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer"
+            aria-label="Đóng"
+            className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 flex items-center justify-center transition-colors cursor-pointer"
           >
-            ✕
+            <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3 text-xs">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block font-semibold text-slate-700">
-                Tên chi nhánh *
-              </label>
-              <span className="text-[11px] text-slate-400">
-                {formData.name.length}/150
-              </span>
-            </div>
-            <input
-              type="text"
-              maxLength={150}
-              required
-              value={formData.name}
-              onCompositionStart={() => {
-                isNameComposingRef.current = true;
-              }}
-              onCompositionEnd={(e) => {
-                isNameComposingRef.current = false;
-                const sanitized = sanitizeBranchName(e.currentTarget.value);
-                setFormData((prev) => ({ ...prev, name: sanitized }));
-              }}
-              onChange={(e) => {
-                const rawValue = e.target.value;
-                const nextValue = isNameComposingRef.current
-                  ? rawValue.slice(0, 150)
-                  : sanitizeBranchName(rawValue);
-                setFormData({ ...formData, name: nextValue });
-                if (errors.name) setErrors({ ...errors, name: undefined });
-              }}
-              onBlur={() => {
-                setFormData((prev) => ({
-                  ...prev,
-                  name: sanitizeBranchName(prev.name)
-                    .trim()
-                    .replace(/\s+/g, " "),
-                }));
-              }}
-              className={`w-full p-2 border rounded-lg focus:outline-emerald-600 ${
-                errors.name
-                  ? "border-rose-500 bg-rose-50/30"
-                  : "border-slate-200"
-              }`}
-              placeholder="VD: UrbanMart Cầu Giấy"
-            />
-            {errors.name && (
-              <p className="text-[11px] text-rose-600 mt-1 font-medium">
-                {errors.name}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block font-semibold text-slate-700">
-                Địa chỉ chi tiết *
-              </label>
-              <span className="text-[11px] text-slate-400">
-                {formData.address.length}/255
-              </span>
-            </div>
-            <input
-              type="text"
-              maxLength={255}
-              required
-              value={formData.address}
-              onCompositionStart={() => {
-                isAddressComposingRef.current = true;
-              }}
-              onCompositionEnd={(e) => {
-                isAddressComposingRef.current = false;
-                const sanitized = sanitizeBranchAddress(e.currentTarget.value);
-                setFormData((prev) => ({ ...prev, address: sanitized }));
-              }}
-              onChange={(e) => {
-                const rawValue = e.target.value;
-                const nextValue = isAddressComposingRef.current
-                  ? rawValue.slice(0, 255)
-                  : sanitizeBranchAddress(rawValue);
-                setFormData({ ...formData, address: nextValue });
-                if (errors.address)
-                  setErrors({ ...errors, address: undefined });
-              }}
-              onBlur={() => {
-                setFormData((prev) => ({
-                  ...prev,
-                  address: sanitizeBranchAddress(prev.address)
-                    .trim()
-                    .replace(/\s+/g, " "),
-                }));
-              }}
-              className={`w-full p-2 border rounded-lg focus:outline-emerald-600 ${
-                errors.address
-                  ? "border-rose-500 bg-rose-50/30"
-                  : "border-slate-200"
-              }`}
-              placeholder="VD: 122 Đường Cầu Giấy, P. Quan Hoa, Cầu Giấy"
-            />
-            {errors.address && (
-              <p className="text-[11px] text-rose-600 mt-1 font-medium">
-                {errors.address}
-              </p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+        {/* Nội dung cuộn mượt */}
+        <form
+          onSubmit={handleSubmit}
+          className="flex-1 overflow-y-auto px-5 py-4 space-y-4 text-xs"
+        >
+          {/* Nhóm 1: Thông tin chung */}
+          <div className="space-y-3">
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block font-semibold text-slate-700">
-                  Số điện thoại *
+                  Tên chi nhánh <span className="text-rose-500">*</span>
                 </label>
                 <span className="text-[11px] text-slate-400">
-                  {formData.phone.length}/10
+                  {formData.name.length}/150
                 </span>
               </div>
               <input
-                type="tel"
-                inputMode="numeric"
-                maxLength={10}
+                type="text"
+                maxLength={150}
                 required
-                value={formData.phone}
-                onChange={(e) => {
-                  const digitsOnly = sanitizePhone(e.target.value);
-                  setFormData({ ...formData, phone: digitsOnly });
-                  if (errors.phone) setErrors({ ...errors, phone: undefined });
+                value={formData.name}
+                onCompositionStart={() => {
+                  isNameComposingRef.current = true;
                 }}
-                className={`w-full p-2 border rounded-lg focus:outline-emerald-600 ${
-                  errors.phone
+                onCompositionEnd={(e) => {
+                  isNameComposingRef.current = false;
+                  const sanitized = sanitizeBranchName(e.currentTarget.value);
+                  setFormData((prev) => ({ ...prev, name: sanitized }));
+                }}
+                onChange={(e) => {
+                  const rawValue = e.target.value;
+                  const nextValue = isNameComposingRef.current
+                    ? rawValue.slice(0, 150)
+                    : sanitizeBranchName(rawValue);
+                  setFormData({ ...formData, name: nextValue });
+                  if (errors.name) setErrors({ ...errors, name: undefined });
+                }}
+                onBlur={() => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    name: sanitizeBranchName(prev.name)
+                      .trim()
+                      .replace(/\s+/g, " "),
+                  }));
+                }}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all ${
+                  errors.name
                     ? "border-rose-500 bg-rose-50/30"
                     : "border-slate-200"
                 }`}
-                placeholder="0243833999"
+                placeholder="VD: UrbanMart Cầu Giấy"
               />
-              {errors.phone && (
+              {errors.name && (
                 <p className="text-[11px] text-rose-600 mt-1 font-medium">
-                  {errors.phone}
+                  {errors.name}
                 </p>
               )}
             </div>
+
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block font-semibold text-slate-700">
-                  Bán kính giao hàng (km)
+                  Địa chỉ chi tiết <span className="text-rose-500">*</span>
                 </label>
-                <span className="text-[11px] text-slate-400">Tối đa 40km</span>
+                <span className="text-[11px] text-slate-400">
+                  {formData.address.length}/255
+                </span>
               </div>
               <input
-                type="number"
-                min="0"
-                max="40"
-                step="1"
-                value={
-                  formData.deliveryRadiusKm === 0
-                    ? ""
-                    : formData.deliveryRadiusKm
-                }
+                type="text"
+                maxLength={255}
+                required
+                value={formData.address}
+                onCompositionStart={() => {
+                  isAddressComposingRef.current = true;
+                }}
+                onCompositionEnd={(e) => {
+                  isAddressComposingRef.current = false;
+                  const sanitized = sanitizeBranchAddress(
+                    e.currentTarget.value,
+                  );
+                  setFormData((prev) => ({ ...prev, address: sanitized }));
+                }}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "") {
-                    setFormData({ ...formData, deliveryRadiusKm: 0 });
-                  } else {
-                    const num = Math.min(
-                      40,
-                      Math.max(0, parseInt(val, 10) || 0),
-                    );
-                    setFormData({ ...formData, deliveryRadiusKm: num });
-                  }
+                  const rawValue = e.target.value;
+                  const nextValue = isAddressComposingRef.current
+                    ? rawValue.slice(0, 255)
+                    : sanitizeBranchAddress(rawValue);
+                  setFormData({ ...formData, address: nextValue });
+                  if (errors.address)
+                    setErrors({ ...errors, address: undefined });
                 }}
-                onKeyDown={(e) => {
-                  if (
-                    e.key === "-" ||
-                    e.key === "+" ||
-                    e.key === "." ||
-                    e.key === "," ||
-                    e.key === "e" ||
-                    e.key === "E"
-                  ) {
-                    e.preventDefault();
-                  }
+                onBlur={() => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    address: sanitizeBranchAddress(prev.address)
+                      .trim()
+                      .replace(/\s+/g, " "),
+                  }));
                 }}
-                className="w-full p-2 border border-slate-200 rounded-lg focus:outline-emerald-600"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all ${
+                  errors.address
+                    ? "border-rose-500 bg-rose-50/30"
+                    : "border-slate-200"
+                }`}
+                placeholder="VD: 122 Đường Cầu Giấy, P. Quan Hoa, Cầu Giấy"
               />
+              {errors.address && (
+                <p className="text-[11px] text-rose-600 mt-1 font-medium">
+                  {errors.address}
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">
+                    Số điện thoại <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    {formData.phone.length}/10
+                  </span>
+                </div>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  required
+                  value={formData.phone}
+                  onChange={(e) => {
+                    const digitsOnly = sanitizePhone(e.target.value);
+                    setFormData({ ...formData, phone: digitsOnly });
+                    if (errors.phone)
+                      setErrors({ ...errors, phone: undefined });
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all ${
+                    errors.phone
+                      ? "border-rose-500 bg-rose-50/30"
+                      : "border-slate-200"
+                  }`}
+                  placeholder="0243833999"
+                />
+                {errors.phone && (
+                  <p className="text-[11px] text-rose-600 mt-1 font-medium">
+                    {errors.phone}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">
+                    Bán kính giao hàng (km)
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    Tối đa 40km
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  max="40"
+                  step="1"
+                  value={
+                    formData.deliveryRadiusKm === 0
+                      ? ""
+                      : formData.deliveryRadiusKm
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "") {
+                      setFormData({ ...formData, deliveryRadiusKm: 0 });
+                    } else {
+                      const num = Math.min(
+                        40,
+                        Math.max(0, parseInt(val, 10) || 0),
+                      );
+                      setFormData({ ...formData, deliveryRadiusKm: num });
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === "-" ||
+                      e.key === "+" ||
+                      e.key === "." ||
+                      e.key === "," ||
+                      e.key === "e" ||
+                      e.key === "E"
+                    ) {
+                      e.preventDefault();
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
+                />
+              </div>
             </div>
           </div>
 
-          <div>
-            <div className="grid grid-cols-2 gap-3">
+          {/* Nhóm 2: Tọa độ bản đồ */}
+          <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/50 space-y-2">
+            <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+              <MapPinIcon className="w-4 h-4 text-emerald-600" />
+              <span>Tọa độ định vị (GPS)</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block text-[11px] font-medium text-slate-600 mb-1">
                   Vĩ độ (Latitude)
                 </label>
                 <input
@@ -502,7 +538,7 @@ export default function AddBranchModal({
                     if (errors.coordinates)
                       setErrors({ ...errors, coordinates: undefined });
                   }}
-                  className={`w-full p-2 border rounded-lg focus:outline-emerald-600 ${
+                  className={`w-full px-3 py-1.5 bg-white border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 ${
                     errors.coordinates
                       ? "border-rose-500 bg-rose-50/30"
                       : "border-slate-200"
@@ -510,7 +546,7 @@ export default function AddBranchModal({
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block text-[11px] font-medium text-slate-600 mb-1">
                   Kinh độ (Longitude)
                 </label>
                 <input
@@ -523,7 +559,7 @@ export default function AddBranchModal({
                     if (errors.coordinates)
                       setErrors({ ...errors, coordinates: undefined });
                   }}
-                  className={`w-full p-2 border rounded-lg focus:outline-emerald-600 ${
+                  className={`w-full px-3 py-1.5 bg-white border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 ${
                     errors.coordinates
                       ? "border-rose-500 bg-rose-50/30"
                       : "border-slate-200"
@@ -532,27 +568,29 @@ export default function AddBranchModal({
               </div>
             </div>
             {errors.coordinates && (
-              <p className="text-[11px] text-rose-600 mt-1 font-medium">
+              <p className="text-[11px] text-rose-600 font-medium">
                 {errors.coordinates}
               </p>
             )}
           </div>
 
-          <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/60 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="font-semibold text-slate-700">
-                Giờ hoạt động
-              </label>
+          {/* Nhóm 3: Giờ hoạt động (Fix tràn khung) */}
+          <div className="border border-slate-200/80 rounded-xl p-3 bg-slate-50/50 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+                <ClockIcon className="w-4 h-4 text-emerald-600" />
+                <span>Giờ hoạt động trong tuần</span>
+              </div>
               <button
                 type="button"
                 onClick={handleApplyMondayToAll}
-                className="text-[11px] text-emerald-700 hover:text-emerald-800 font-semibold hover:underline cursor-pointer"
+                className="text-[11px] text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer"
               >
                 Áp dụng Thứ 2 cho cả tuần
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="divide-y divide-slate-100 bg-white rounded-lg border border-slate-200/90 overflow-hidden">
               {DAYS_OF_WEEK.map((day) => {
                 const { open, close } = parseTimeRange(
                   formData.openingHours?.[day.key],
@@ -560,28 +598,28 @@ export default function AddBranchModal({
                 return (
                   <div
                     key={day.key}
-                    className="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5 rounded-md border border-slate-200"
+                    className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 px-3 py-2 hover:bg-slate-50/80 transition-colors"
                   >
-                    <span className="font-medium text-slate-700 w-16 shrink-0">
+                    <span className="font-semibold text-slate-700 text-xs w-20 shrink-0">
                       {day.label}
                     </span>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-end">
                       <input
                         type="time"
                         value={open}
                         onChange={(e) =>
                           handleDayTimeChange(day.key, "open", e.target.value)
                         }
-                        className="text-[11px] px-1.5 py-1 border border-slate-200 rounded focus:outline-emerald-600"
+                        className="text-xs px-2.5 py-1 bg-slate-50/70 border border-slate-200 rounded-md focus:bg-white focus:outline-hidden focus:border-emerald-600 min-w-28"
                       />
-                      <span className="text-slate-400">-</span>
+                      <span className="text-slate-400 font-medium">đến</span>
                       <input
                         type="time"
                         value={close}
                         onChange={(e) =>
                           handleDayTimeChange(day.key, "close", e.target.value)
                         }
-                        className="text-[11px] px-1.5 py-1 border border-slate-200 rounded focus:outline-emerald-600"
+                        className="text-xs px-2.5 py-1 bg-slate-50/70 border border-slate-200 rounded-md focus:bg-white focus:outline-hidden focus:border-emerald-600 min-w-28"
                       />
                     </div>
                   </div>
@@ -596,39 +634,41 @@ export default function AddBranchModal({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-1">
+          {/* Nhóm 4: Trạng thái & Vai trò kho */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Trạng thái
+                Trạng thái hoạt động
               </label>
               <select
                 value={formData.status}
                 onChange={(e) =>
                   setFormData({ ...formData, status: e.target.value })
                 }
-                className="w-full p-2 border border-slate-200 rounded-lg focus:outline-emerald-600 cursor-pointer"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 cursor-pointer"
               >
                 <option value="ACTIVE">Đang hoạt động</option>
                 <option value="MAINTENANCE">Đang bảo trì / Kiểm kê</option>
               </select>
             </div>
 
-            <div className="flex items-center pt-5">
-              <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-700">
+            <div className="flex items-end">
+              <label className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50/60 hover:bg-slate-100/70 cursor-pointer font-semibold text-slate-700 transition-colors">
                 <input
                   type="checkbox"
                   checked={formData.isWarehouse}
                   onChange={(e) =>
                     setFormData({ ...formData, isWarehouse: e.target.checked })
                   }
-                  className="w-4 h-4 text-emerald-600 rounded border-slate-300"
+                  className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
                 />
                 <span>Đặt làm Kho tổng</span>
               </label>
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 border-t pt-3 mt-4">
+          {/* Footer nút hành động */}
+          <div className="flex items-center justify-end gap-2.5 border-t border-slate-100 pt-3.5 mt-4">
             <button
               type="button"
               onClick={onClose}
@@ -638,9 +678,9 @@ export default function AddBranchModal({
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg bg-emerald-700 text-white font-semibold hover:bg-emerald-800 transition-colors cursor-pointer"
+              className="px-5 py-2 rounded-lg bg-emerald-700 text-white font-semibold hover:bg-emerald-800 shadow-xs transition-colors cursor-pointer"
             >
-              {initialData ? "Cập nhật" : "Tạo chi nhánh"}
+              {initialData ? "Cập nhật chi nhánh" : "Tạo chi nhánh"}
             </button>
           </div>
         </form>

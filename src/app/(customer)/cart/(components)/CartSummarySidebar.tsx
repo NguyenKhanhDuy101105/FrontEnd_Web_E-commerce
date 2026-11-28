@@ -1,16 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { TicketIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import VoucherSelectModal from "../../../../components/common/VoucherSelectModal";
 import { CustomerVoucherItem } from "@/src/services/customer/voucherService";
 import { useBranch } from "@/src/context/BranchContext";
+import { showToast } from "@/src/utils/toast";
 
 interface CartSummarySidebarProps {
   totalAmount: number;
   selectedCount?: number;
   onCheckout: () => void;
 }
+
+const getInitialVoucher = (): CustomerVoucherItem | null => {
+  if (typeof window === "undefined") return null;
+  const savedVoucher = localStorage.getItem("checkout_selected_voucher");
+  if (!savedVoucher) return null;
+  try {
+    return JSON.parse(savedVoucher);
+  } catch (e) {
+    console.error("Lỗi parse voucher:", e);
+    return null;
+  }
+};
 
 export default function CartSummarySidebar({
   totalAmount,
@@ -20,18 +33,15 @@ export default function CartSummarySidebar({
   const { branchId } = useBranch();
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
   const [appliedVoucher, setAppliedVoucher] =
-    useState<CustomerVoucherItem | null>(null);
+    useState<CustomerVoucherItem | null>(getInitialVoucher);
 
-  useEffect(() => {
-    const savedVoucher = localStorage.getItem("checkout_selected_voucher");
-    if (savedVoucher) {
-      try {
-        setAppliedVoucher(JSON.parse(savedVoucher));
-      } catch (e) {
-        console.error("Lỗi parse voucher:", e);
-      }
+  const handleOpenVoucherModal = () => {
+    if (!branchId) {
+      showToast.error("Vui lòng chọn siêu thị trước khi chọn mã khuyến mãi!");
+      return;
     }
-  }, []);
+    setIsVoucherModalOpen(true);
+  };
 
   const handleApplyVoucher = (voucher: CustomerVoucherItem) => {
     setAppliedVoucher(voucher);
@@ -43,15 +53,13 @@ export default function CartSummarySidebar({
     localStorage.removeItem("checkout_selected_voucher");
   };
 
-  const calculateDiscount = () => {
-    if (!appliedVoucher || totalAmount === 0) return 0;
+  const minOrderAmount = appliedVoucher?.minOrderAmount ?? 0;
+  const isVoucherEligible =
+    Boolean(appliedVoucher) && totalAmount > 0 && totalAmount >= minOrderAmount;
+  const missingAmount = Math.max(0, minOrderAmount - totalAmount);
 
-    if (
-      appliedVoucher.minOrderAmount &&
-      totalAmount < appliedVoucher.minOrderAmount
-    ) {
-      return 0;
-    }
+  const calculateDiscount = () => {
+    if (!appliedVoucher || !isVoucherEligible) return 0;
 
     if (appliedVoucher.discountType === "PERCENT") {
       const calculated = (totalAmount * appliedVoucher.discountValue) / 100;
@@ -80,7 +88,7 @@ export default function CartSummarySidebar({
           </span>
           <button
             type="button"
-            onClick={() => setIsVoucherModalOpen(true)}
+            onClick={handleOpenVoucherModal}
             className="text-xs font-semibold text-emerald-600 hover:underline cursor-pointer"
           >
             {appliedVoucher ? "Thay đổi" : "Chọn hoặc nhập mã"}
@@ -88,22 +96,45 @@ export default function CartSummarySidebar({
         </div>
 
         {appliedVoucher ? (
-          <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg">
-            <div className="min-w-0 pr-2">
-              <span className="font-mono font-bold text-xs text-emerald-700 block">
-                {appliedVoucher.code}
-              </span>
-              <span className="text-[11px] text-emerald-600 truncate block">
-                {appliedVoucher.title}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={handleRemoveVoucher}
-              className="text-slate-400 hover:text-red-500 p-1 cursor-pointer transition-colors"
+          <div className="space-y-1.5">
+            <div
+              className={`flex items-center justify-between p-2.5 border rounded-lg ${
+                isVoucherEligible
+                  ? "bg-emerald-50 border-emerald-200"
+                  : "bg-amber-50/70 border-amber-200"
+              }`}
             >
-              <XMarkIcon className="w-4 h-4" />
-            </button>
+              <div className="min-w-0 pr-2">
+                <span
+                  className={`font-mono font-bold text-xs block ${
+                    isVoucherEligible ? "text-emerald-700" : "text-amber-700"
+                  }`}
+                >
+                  {appliedVoucher.code}
+                </span>
+                <span
+                  className={`text-[11px] truncate block ${
+                    isVoucherEligible ? "text-emerald-600" : "text-amber-600"
+                  }`}
+                >
+                  {appliedVoucher.title}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleRemoveVoucher}
+                className="text-slate-400 hover:text-red-500 p-1 cursor-pointer transition-colors"
+              >
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            {!isVoucherEligible && missingAmount > 0 && (
+              <p className="text-[11px] text-amber-600 font-medium">
+                Mua thêm {missingAmount.toLocaleString("vi-VN")}đ để áp dụng mã
+                này.
+              </p>
+            )}
           </div>
         ) : (
           <p className="text-[11px] sm:text-xs text-slate-400">

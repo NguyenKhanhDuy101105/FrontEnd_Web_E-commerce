@@ -1,7 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { TagIcon, CalendarIcon } from "@heroicons/react/24/outline";
+import { useState, useEffect, useMemo } from "react";
+import {
+  TagIcon,
+  CalendarIcon,
+  ExclamationCircleIcon,
+} from "@heroicons/react/24/outline";
 
 export interface DiscountModalTarget {
   type: "SINGLE_PRODUCT" | "CATEGORY";
@@ -22,6 +26,22 @@ interface ProductDiscountModalProps {
   }) => void;
 }
 
+const formatLocalDateTime = (date: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const getStartOfToday = (): Date => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+};
+
 export default function ProductDiscountModal({
   isOpen,
   target,
@@ -32,26 +52,94 @@ export default function ProductDiscountModal({
   const [discountPercent, setDiscountPercent] = useState<number>(10);
   const [startsAt, setStartsAt] = useState<string>("");
   const [endsAt, setEndsAt] = useState<string>("");
+  const [minStartTime, setMinStartTime] = useState<string>("");
+  const [dateError, setDateError] = useState<string>("");
 
   useEffect(() => {
     if (isOpen) {
       const now = new Date();
-      const nextWeek = new Date();
+      now.setSeconds(0, 0);
+
+      const nextWeek = new Date(now);
       nextWeek.setDate(now.getDate() + 7);
 
-      setStartsAt(now.toISOString().slice(0, 16));
-      setEndsAt(nextWeek.toISOString().slice(0, 16));
+      const startOfToday = getStartOfToday();
+
+      setMinStartTime(formatLocalDateTime(startOfToday));
+      setStartsAt(formatLocalDateTime(now));
+      setEndsAt(formatLocalDateTime(nextWeek));
       setDiscountPercent(10);
+      setDateError("");
     }
   }, [isOpen]);
+
+  const validateDates = (startVal: string, endVal: string): string => {
+    if (!startVal || !endVal) {
+      return "Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc.";
+    }
+
+    const startDate = new Date(startVal);
+    const endDate = new Date(endVal);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return "Định dạng thời gian không hợp lệ.";
+    }
+
+    // Chỉ kiểm tra phần ngày (00:00 hôm nay), cho phép chọn thoải mái giờ trong ngày hôm nay
+    const startDay = new Date(startDate);
+    startDay.setHours(0, 0, 0, 0);
+    const today = getStartOfToday();
+
+    if (startDay.getTime() < today.getTime()) {
+      return "Ngày bắt đầu không được nằm trong quá khứ.";
+    }
+
+    if (endDate.getTime() <= startDate.getTime()) {
+      return "Ngày kết thúc phải sau ngày bắt đầu.";
+    }
+
+    return "";
+  };
+
+  const handleStartDateChange = (newStart: string) => {
+    setStartsAt(newStart);
+
+    if (newStart && endsAt && new Date(endsAt) <= new Date(newStart)) {
+      const autoEnd = new Date(newStart);
+      autoEnd.setDate(autoEnd.getDate() + 7);
+      const formattedAutoEnd = formatLocalDateTime(autoEnd);
+      setEndsAt(formattedAutoEnd);
+      setDateError(validateDates(newStart, formattedAutoEnd));
+      return;
+    }
+
+    setDateError(validateDates(newStart, endsAt));
+  };
+
+  const handleEndDateChange = (newEnd: string) => {
+    setEndsAt(newEnd);
+    setDateError(validateDates(startsAt, newEnd));
+  };
+
+  const minEndTime = useMemo(() => {
+    if (!startsAt) return minStartTime;
+    return startsAt > minStartTime ? startsAt : minStartTime;
+  }, [startsAt, minStartTime]);
 
   if (!isOpen || !target) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const errorMsg = validateDates(startsAt, endsAt);
+    if (errorMsg) {
+      setDateError(errorMsg);
+      return;
+    }
+
     onSubmit({
       productIds: target.productIds,
-      discountPercent: discountPercent / 100, // Đổi từ % sang thập phân (10% -> 0.1)
+      discountPercent: discountPercent / 100,
       startsAt: new Date(startsAt).toISOString(),
       endsAt: new Date(endsAt).toISOString(),
     });
@@ -105,7 +193,6 @@ export default function ProductDiscountModal({
                     setDiscountPercent(0);
                   } else {
                     const num = parseInt(val, 10) || 0;
-
                     setDiscountPercent(Math.min(99, Math.max(1, num)));
                   }
                 }}
@@ -128,7 +215,7 @@ export default function ProductDiscountModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="font-semibold text-slate-700 mb-1 flex items-center gap-1">
                 <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
@@ -137,9 +224,14 @@ export default function ProductDiscountModal({
               <input
                 type="datetime-local"
                 required
+                min={minStartTime}
                 value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d5c3a]/20"
+                onChange={(e) => handleStartDateChange(e.target.value)}
+                className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                  dateError && startsAt < minStartTime
+                    ? "border-rose-400 focus:ring-rose-200"
+                    : "border-slate-200 focus:ring-[#0d5c3a]/20"
+                }`}
               />
             </div>
             <div>
@@ -150,12 +242,24 @@ export default function ProductDiscountModal({
               <input
                 type="datetime-local"
                 required
+                min={minEndTime}
                 value={endsAt}
-                onChange={(e) => setEndsAt(e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0d5c3a]/20"
+                onChange={(e) => handleEndDateChange(e.target.value)}
+                className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                  dateError
+                    ? "border-rose-400 focus:ring-rose-200"
+                    : "border-slate-200 focus:ring-[#0d5c3a]/20"
+                }`}
               />
             </div>
           </div>
+
+          {dateError && (
+            <div className="flex items-center gap-1.5 text-rose-600 bg-rose-50 border border-rose-200 px-3 py-2 rounded-lg text-[11px] font-medium">
+              <ExclamationCircleIcon className="w-4 h-4 shrink-0" />
+              <span>{dateError}</span>
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
             <button
@@ -168,7 +272,7 @@ export default function ProductDiscountModal({
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || Boolean(dateError)}
               className="px-4 py-2 rounded-lg bg-[#0d5c3a] text-white font-semibold hover:bg-[#0b4d30] transition-colors cursor-pointer disabled:opacity-50"
             >
               {loading ? "Đang lưu..." : "Áp dụng khuyến mãi"}

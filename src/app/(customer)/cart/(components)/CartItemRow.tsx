@@ -7,13 +7,6 @@ import { TrashIcon } from "@heroicons/react/24/outline";
 import { CartItem } from "@/src/context/CartContext";
 import { showToast } from "@/src/utils/toast";
 
-interface CartItemWithStock extends CartItem {
-  stockQuantity?: number;
-  availableQuantity?: number;
-  maxQuantity?: number;
-  stock?: number;
-}
-
 interface CartItemRowProps {
   item: CartItem;
   isSelected?: boolean;
@@ -35,15 +28,13 @@ export default function CartItemRow({
   onUpdateQuantity,
   onRemoveItem,
 }: CartItemRowProps) {
-  const itemWithStock = item as CartItemWithStock;
-  const maxStock =
-    itemWithStock.stockQuantity ??
-    itemWithStock.availableQuantity ??
-    itemWithStock.maxQuantity ??
-    itemWithStock.stock;
-
+  const maxStock = item.stock;
+  const isOutOfStock = typeof maxStock === "number" && maxStock <= 0;
+  const isOverStock =
+    typeof maxStock === "number" && maxStock > 0 && item.quantity > maxStock;
   const isAtMaxStock =
-    typeof maxStock === "number" && item.quantity >= maxStock;
+    typeof maxStock === "number" && maxStock > 0 && item.quantity >= maxStock;
+  const isUnselectable = isOutOfStock || isOverStock;
 
   const [inputValue, setInputValue] = useState<string>(String(item.quantity));
 
@@ -52,6 +43,8 @@ export default function CartItemRow({
   }, [item.quantity]);
 
   const commitQuantityChange = () => {
+    if (isOutOfStock) return;
+
     const trimmed = inputValue.trim();
     if (!trimmed) {
       setInputValue(String(item.quantity));
@@ -97,13 +90,25 @@ export default function CartItemRow({
   };
 
   return (
-    <div className="pt-4 sm:pt-6 first:pt-0 space-y-3">
+    <div
+      className={`pt-4 sm:pt-6 first:pt-0 space-y-3 ${
+        isOutOfStock ? "opacity-75" : ""
+      }`}
+    >
       <div className="flex flex-wrap sm:flex-nowrap items-start gap-3 sm:gap-4">
         <input
           type="checkbox"
-          checked={isSelected}
+          disabled={isUnselectable}
+          checked={!isUnselectable && isSelected}
           onChange={onToggleSelect}
-          className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 mt-2 sm:mt-5 cursor-pointer shrink-0"
+          title={
+            isOutOfStock
+              ? "Sản phẩm đã hết hàng"
+              : isOverStock
+                ? "Số lượng vượt quá tồn kho chi nhánh"
+                : "Chọn sản phẩm"
+          }
+          className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 mt-2 sm:mt-5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
         />
 
         <Link
@@ -130,15 +135,42 @@ export default function CartItemRow({
           </p>
 
           {typeof maxStock === "number" && (
-            <p
-              className={`text-[10px] sm:text-[11px] font-medium ${
-                isAtMaxStock ? "text-amber-600" : "text-slate-400"
-              }`}
-            >
-              {isAtMaxStock
-                ? `Đã đạt tối đa tồn kho (${maxStock})`
-                : `Còn ${maxStock} sản phẩm`}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p
+                className={`text-[10px] sm:text-[11px] font-medium ${
+                  isOutOfStock || isOverStock
+                    ? "text-rose-600 font-semibold"
+                    : isAtMaxStock
+                      ? "text-amber-600"
+                      : "text-slate-400"
+                }`}
+              >
+                {isOutOfStock
+                  ? "Hết hàng tại chi nhánh hiện tại"
+                  : isOverStock
+                    ? `Chỉ còn ${maxStock} sản phẩm tại chi nhánh này`
+                    : isAtMaxStock
+                      ? `Đã đạt tối đa tồn kho (${maxStock})`
+                      : `Còn ${maxStock} sản phẩm`}
+              </p>
+
+              {isOverStock && typeof maxStock === "number" && (
+                <button
+                  type="button"
+                  disabled={isUpdating}
+                  onClick={() =>
+                    onUpdateQuantity(
+                      item.itemId,
+                      item.quantity,
+                      maxStock - item.quantity,
+                    )
+                  }
+                  className="text-[10px] sm:text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer disabled:opacity-50"
+                >
+                  Đặt về {maxStock}
+                </button>
+              )}
+            </div>
           )}
 
           <div className="sm:hidden flex items-center gap-2 pt-1">
@@ -168,7 +200,7 @@ export default function CartItemRow({
           <div className="flex items-center border border-slate-200 rounded-sm overflow-hidden bg-slate-50 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500/30 transition">
             <button
               type="button"
-              disabled={isUpdating || item.quantity <= 1}
+              disabled={isUpdating || isOutOfStock || item.quantity <= 1}
               onClick={() => onUpdateQuantity(item.itemId, item.quantity, -1)}
               className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
             >
@@ -178,7 +210,7 @@ export default function CartItemRow({
               type="text"
               inputMode="numeric"
               aria-label="Số lượng sản phẩm"
-              disabled={isUpdating}
+              disabled={isUpdating || isOutOfStock}
               value={inputValue}
               onChange={handleInputChange}
               onBlur={commitQuantityChange}
@@ -188,9 +220,15 @@ export default function CartItemRow({
             />
             <button
               type="button"
-              disabled={isUpdating || isAtMaxStock}
+              disabled={isUpdating || isOutOfStock || isAtMaxStock}
               onClick={() => onUpdateQuantity(item.itemId, item.quantity, 1)}
-              title={isAtMaxStock ? "Đã đạt giới hạn tồn kho" : "Tăng số lượng"}
+              title={
+                isOutOfStock
+                  ? "Sản phẩm đã hết hàng"
+                  : isAtMaxStock
+                    ? "Đã đạt giới hạn tồn kho"
+                    : "Tăng số lượng"
+              }
               className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
             >
               +

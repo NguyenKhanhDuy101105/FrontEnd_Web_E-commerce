@@ -8,21 +8,13 @@ import React, {
   useCallback,
 } from "react";
 import { useBranch } from "@/src/context/BranchContext";
-import { cartService } from "@/src/services/customer/cartService";
+import { cartService, CartItem } from "@/src/services/customer/cartService";
 import { showToast } from "@/src/utils/toast";
 
-export interface CartItem {
-  itemId: string;
-  productId: string;
-  productName: string;
-  imageUrl: string;
-  quantity: number;
-  basePrice: number;
-  unitPrice: number;
-  discountPercent: number;
-  discountStartsAt?: string;
-  discountEndsAt?: string;
-  subtotal: number;
+export type { CartItem };
+
+interface UpdateQuantityOptions {
+  silent?: boolean;
 }
 
 interface CartContextType {
@@ -32,11 +24,47 @@ interface CartContextType {
   isLoading: boolean;
   getItemQuantity: (productId: string) => number;
   addToCart: (productId: string, quantity?: number) => Promise<void>;
-  updateQuantity: (productId: string, newQuantity: number) => Promise<void>;
-  refreshCart: () => Promise<void>;
+  updateQuantity: (
+    productId: string,
+    newQuantity: number,
+    options?: UpdateQuantityOptions,
+  ) => Promise<void>;
+  clearCart: () => Promise<void>;
+  refreshCart: () => Promise<CartItem[]>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  return (
+    (error as { response?: { data?: { message?: string } } })?.response?.data
+      ?.message || fallback
+  );
+};
+
+const preserveItemOrder = (
+  prevItems: CartItem[],
+  nextItems: CartItem[],
+): CartItem[] => {
+  if (prevItems.length === 0) return nextItems;
+
+  const orderMap = new Map<string, number>();
+  prevItems.forEach((item, index) => {
+    orderMap.set(item.itemId || item.productId, index);
+  });
+
+  return [...nextItems].sort((a, b) => {
+    const keyA = a.itemId || a.productId;
+    const keyB = b.itemId || b.productId;
+    const indexA = orderMap.has(keyA)
+      ? orderMap.get(keyA)!
+      : Number.MAX_SAFE_INTEGER;
+    const indexB = orderMap.has(keyB)
+      ? orderMap.get(keyB)!
+      : Number.MAX_SAFE_INTEGER;
+    return indexA - indexB;
+  });
+};
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { branchId } = useBranch();
@@ -46,79 +74,45 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [totalAmount, setTotalAmount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const fetchCart = useCallback(async () => {
-    if (typeof window === "undefined") return;
+  const fetchCart = useCallback(async (): Promise<CartItem[]> => {
+    if (typeof window === "undefined") return [];
 
     const token =
       localStorage.getItem("accessToken") || localStorage.getItem("token");
 
-    if (!branchId || !token) {
+    if (!token) {
       setCartItems([]);
       setTotalQuantity(0);
       setTotalAmount(0);
-      return;
+      return [];
     }
 
     try {
       setIsLoading(true);
-      const res = await cartService.getCart(branchId);
+      const res = await cartService.getCart();
       if (res?.data) {
-        setCartItems(res.data.items || []);
+        const rawItems = res.data.items || [];
+        setCartItems((prev) => preserveItemOrder(prev, rawItems));
         setTotalQuantity(res.data.totalQuantity || 0);
         setTotalAmount(res.data.totalAmount || 0);
+        return rawItems;
       } else {
         setCartItems([]);
         setTotalQuantity(0);
         setTotalAmount(0);
+        return [];
       }
     } catch (error) {
       console.error("Lỗi tải thông tin giỏ hàng:", error);
+      return [];
     } finally {
       setIsLoading(false);
     }
-  }, [branchId]);
+  }, []);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadCartData = async () => {
-      if (typeof window === "undefined") return;
-
-      const token =
-        localStorage.getItem("accessToken") || localStorage.getItem("token");
-
-      if (!branchId || !token) {
-        if (isMounted) {
-          setCartItems([]);
-          setTotalQuantity(0);
-          setTotalAmount(0);
-        }
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        const res = await cartService.getCart(branchId);
-        if (isMounted && res?.data) {
-          setCartItems(res.data.items || []);
-          setTotalQuantity(res.data.totalQuantity || 0);
-          setTotalAmount(res.data.totalAmount || 0);
-        }
-      } catch (error) {
-        console.error("Lỗi khi đồng bộ giỏ hàng:", error);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadCartData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [branchId]);
+    fetchCart();
+  }, [fetchCart, branchId]);
 
   const getItemQuantity = (productId: string): number => {
     const item = cartItems.find((i) => i.productId === productId);
@@ -149,7 +143,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (res?.data) {
-        setCartItems(res.data.items || []);
+        const rawItems = res.data.items || [];
+        setCartItems((prev) => preserveItemOrder(prev, rawItems));
         setTotalQuantity(res.data.totalQuantity || 0);
         setTotalAmount(res.data.totalAmount || 0);
       } else {
@@ -157,19 +152,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
 
       showToast.success("Đã thêm vào giỏ hàng!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Lỗi thêm giỏ hàng:", error);
-      const errMsg =
-        error?.response?.data?.message || "Không thể thêm sản phẩm vào giỏ!";
-      showToast.error(errMsg);
+      showToast.error(
+        getErrorMessage(error, "Không thể thêm sản phẩm vào giỏ!"),
+      );
     }
   };
 
-  const updateQuantity = async (productId: string, newQuantity: number) => {
-    if (!branchId) return;
-
+  const updateQuantity = async (
+    productId: string,
+    newQuantity: number,
+    options?: UpdateQuantityOptions,
+  ) => {
     const targetItem = cartItems.find((i) => i.productId === productId);
     if (!targetItem) return;
+
+    if (newQuantity > 0 && !branchId) {
+      if (!options?.silent) {
+        showToast.error("Vui lòng chọn chi nhánh gần bạn!");
+      }
+      return;
+    }
 
     const previousCartItems = [...cartItems];
 
@@ -188,30 +192,65 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (newQuantity <= 0) {
         if (targetItem.itemId) {
           await cartService.removeCartItem(targetItem.itemId);
-          showToast.success("Đã xóa sản phẩm khỏi giỏ hàng!");
+          if (!options?.silent) {
+            showToast.success("Đã xóa sản phẩm khỏi giỏ hàng!");
+          }
+        }
+      } else if (targetItem.itemId) {
+        const res = await cartService.updateCartItem(targetItem.itemId, {
+          quantity: newQuantity,
+          branchId: branchId!,
+        });
+        if (res?.data) {
+          const rawItems = res.data.items || [];
+          setCartItems((prev) => preserveItemOrder(prev, rawItems));
+          setTotalQuantity(res.data.totalQuantity || 0);
+          setTotalAmount(res.data.totalAmount || 0);
+          return;
         }
       } else {
-        if (targetItem.itemId) {
-          await cartService.updateCartItem(targetItem.itemId, {
-            quantity: newQuantity,
-          });
-        } else {
-          await cartService.addToCart({
-            branchId,
-            productId,
-            quantity: newQuantity,
-          });
-        }
+        await cartService.addToCart({
+          branchId: branchId!,
+          productId,
+          quantity: newQuantity,
+        });
       }
 
       await fetchCart();
-    } catch (error: any) {
-      console.error("Lỗi cập nhật số lượng giỏ hàng:", error);
-
+    } catch (error: unknown) {
       setCartItems(previousCartItems);
-      const errMsg =
-        error?.response?.data?.message || "Không thể cập nhật số lượng!";
-      showToast.error(errMsg);
+      if (!options?.silent) {
+        console.error("Lỗi cập nhật số lượng giỏ hàng:", error);
+        showToast.error(getErrorMessage(error, "Không thể cập nhật số lượng!"));
+      }
+      throw error;
+    }
+  };
+
+  const clearCart = async () => {
+    const previousItems = [...cartItems];
+    const previousQty = totalQuantity;
+    const previousAmount = totalAmount;
+
+    setCartItems([]);
+    setTotalQuantity(0);
+    setTotalAmount(0);
+
+    try {
+      await cartService.clearCart();
+      showToast.success("Đã xóa toàn bộ sản phẩm trong giỏ hàng!");
+    } catch (error: unknown) {
+      console.error("Lỗi khi xóa toàn bộ giỏ hàng:", error);
+      setCartItems(previousItems);
+      setTotalQuantity(previousQty);
+      setTotalAmount(previousAmount);
+      showToast.error(
+        getErrorMessage(
+          error,
+          "Có lỗi xảy ra khi xóa giỏ hàng. Vui lòng thử lại!",
+        ),
+      );
+      throw error;
     }
   };
 
@@ -225,6 +264,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         getItemQuantity,
         addToCart,
         updateQuantity,
+        clearCart,
         refreshCart: fetchCart,
       }}
     >

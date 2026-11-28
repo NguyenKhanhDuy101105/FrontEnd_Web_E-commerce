@@ -31,7 +31,6 @@ export default function OrderReviewModal({
   const [submitting, setSubmitting] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Xử lý chọn ảnh từ máy tính & convert sang Base64
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -168,7 +167,6 @@ export default function OrderReviewModal({
             />
           </div>
 
-          {/* Chọn ảnh thực tế */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
               Hình ảnh đính kèm (Tối đa 5 ảnh)

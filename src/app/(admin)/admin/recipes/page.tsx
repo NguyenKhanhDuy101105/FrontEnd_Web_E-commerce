@@ -140,6 +140,7 @@ export default function AdminRecipesPage() {
       <RecipeModal
         isOpen={isModalOpen}
         editingRecipe={editingRecipe}
+        existingRecipes={recipes}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleSubmitModal}
       />

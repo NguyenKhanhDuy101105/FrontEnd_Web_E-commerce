@@ -2,13 +2,17 @@
 
 import React from "react";
 import { NotificationType } from "@/src/services/customer/notificationService";
+import { TrashIcon } from "@heroicons/react/24/outline";
 
 interface NotificationFilterTabsProps {
   activeType: NotificationType | "ALL";
   unreadCount: number;
+  hasNotifications?: boolean;
   onSelectType: (type: NotificationType | "ALL") => void;
   onMarkAllAsRead: () => void;
   isMarkingAll: boolean;
+  onDeleteAll?: () => void;
+  isDeletingAll?: boolean;
 }
 
 const TABS: { key: NotificationType | "ALL"; label: string }[] = [
@@ -22,9 +26,12 @@ const TABS: { key: NotificationType | "ALL"; label: string }[] = [
 export default function NotificationFilterTabs({
   activeType,
   unreadCount,
+  hasNotifications = false,
   onSelectType,
   onMarkAllAsRead,
   isMarkingAll,
+  onDeleteAll,
+  isDeletingAll = false,
 }: NotificationFilterTabsProps) {
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
@@ -40,15 +47,32 @@ export default function NotificationFilterTabs({
           )}
         </div>
 
-        {unreadCount > 0 && (
+        {unreadCount > 0 ? (
           <button
             type="button"
             onClick={onMarkAllAsRead}
             disabled={isMarkingAll}
             className="text-xs font-bold text-[#0d5c3a] hover:text-[#094229] transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50 self-start sm:self-auto"
           >
-            <span>Đánh dấu đã đọc tất cả</span>
+            <span>
+              {isMarkingAll ? "Đang xử lý..." : "Đánh dấu đã đọc tất cả"}
+            </span>
           </button>
+        ) : (
+          hasNotifications &&
+          onDeleteAll && (
+            <button
+              type="button"
+              onClick={onDeleteAll}
+              disabled={isDeletingAll}
+              className="text-xs font-bold text-rose-600 hover:text-rose-700 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50 self-start sm:self-auto"
+            >
+              <TrashIcon className="w-3.5 h-3.5" />
+              <span>
+                {isDeletingAll ? "Đang xóa..." : "Xóa tất cả thông báo"}
+              </span>
+            </button>
+          )
         )}
       </div>
 

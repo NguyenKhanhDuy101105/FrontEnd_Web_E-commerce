@@ -60,6 +60,10 @@ export default function OrderSummarySection({
             const itemPrice = item.unitPrice ?? item.price ?? 0;
             const itemBasePrice = item.basePrice ?? 0;
             const itemQty = item.quantity ?? 1;
+            const targetProductId = item.productId || item.id;
+            const productHref = targetProductId
+              ? `/products/${targetProductId}`
+              : null;
 
             return (
               <div
@@ -67,19 +71,42 @@ export default function OrderSummarySection({
                 className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="relative w-12 h-12 shrink-0 bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
-                    <Image
-                      src={itemImage}
-                      alt={itemName}
-                      fill
-                      className="object-contain p-1"
-                    />
-                  </div>
+                  {productHref ? (
+                    <Link
+                      href={productHref}
+                      className="relative w-12 h-12 shrink-0 bg-slate-50 border border-slate-200 rounded-lg overflow-hidden hover:border-green-500 transition-colors"
+                    >
+                      <Image
+                        src={itemImage}
+                        alt={itemName}
+                        fill
+                        className="object-contain p-1"
+                      />
+                    </Link>
+                  ) : (
+                    <div className="relative w-12 h-12 shrink-0 bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                      <Image
+                        src={itemImage}
+                        alt={itemName}
+                        fill
+                        className="object-contain p-1"
+                      />
+                    </div>
+                  )}
 
                   <div className="min-w-0 space-y-0.5">
-                    <h4 className="text-xs font-bold text-slate-900 truncate">
-                      {itemName}
-                    </h4>
+                    {productHref ? (
+                      <Link
+                        href={productHref}
+                        className="block text-xs font-bold text-slate-900 truncate hover:text-green-700 transition-colors"
+                      >
+                        {itemName}
+                      </Link>
+                    ) : (
+                      <h4 className="text-xs font-bold text-slate-900 truncate">
+                        {itemName}
+                      </h4>
+                    )}
                     <p className="text-[11px] text-slate-500">
                       Số lượng {itemQty}
                     </p>

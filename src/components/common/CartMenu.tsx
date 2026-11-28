@@ -41,8 +41,8 @@ export default function CartMenu() {
         <ShoppingBagIcon className="w-6 h-6" />
 
         {isAuthenticated && totalQuantity > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-white">
-            {totalQuantity}
+          <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center border-2 border-white">
+            {totalQuantity > 99 ? "99+" : totalQuantity}
           </span>
         )}
       </button>
@@ -58,33 +58,47 @@ export default function CartMenu() {
               ) : cartItems.length > 0 ? (
                 <div className="space-y-3">
                   <div className="max-h-64 overflow-y-auto space-y-3 pr-1.5 divide-y divide-slate-100 scrollbar-thin scrollbar-thumb-slate-200 hover:scrollbar-thumb-slate-300">
-                    {cartItems.map((item) => (
-                      <div
-                        key={item.itemId || item.productId}
-                        className="flex items-center space-x-3 pt-3 first:pt-0"
-                      >
-                        <div className="relative w-14 h-14 bg-slate-50 border rounded-sm border-slate-200 shrink-0 p-1">
-                          <Image
-                            src={item.imageUrl || "/images/Banner1.jpeg"}
-                            alt={item.productName}
-                            fill
-                            className="object-contain"
-                          />
-                        </div>
+                    {cartItems.map((item) => {
+                      const isOutOfStock =
+                        typeof item.stock === "number" && item.stock <= 0;
 
-                        <div className="flex-1 overflow-hidden text-left">
-                          <h5 className="text-xs font-semibold text-slate-800 line-clamp-2 leading-snug">
-                            {item.productName}
-                          </h5>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
-                            Số lượng {item.quantity}
-                          </p>
-                          <p className="text-xs font-bold text-slate-900 mt-0.5">
-                            {item.unitPrice.toLocaleString("vi-VN")}đ
-                          </p>
+                      return (
+                        <div
+                          key={item.itemId || item.productId}
+                          className={`flex items-center space-x-3 pt-3 first:pt-0 ${
+                            isOutOfStock ? "opacity-60" : ""
+                          }`}
+                        >
+                          <div className="relative w-14 h-14 bg-slate-50 border rounded-sm border-slate-200 shrink-0 p-1">
+                            <Image
+                              src={item.imageUrl || "/images/Banner1.jpeg"}
+                              alt={item.productName}
+                              fill
+                              className="object-contain"
+                            />
+                          </div>
+
+                          <div className="flex-1 overflow-hidden text-left">
+                            <h5 className="text-xs font-semibold text-slate-800 line-clamp-2 leading-snug">
+                              {item.productName}
+                            </h5>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-[11px] text-slate-400">
+                                Số lượng {item.quantity}
+                              </p>
+                              {isOutOfStock && (
+                                <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
+                                  Hết hàng
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs font-bold text-slate-900 mt-0.5">
+                              {item.unitPrice.toLocaleString("vi-VN")}đ
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div className="flex items-center justify-between border-t border-slate-100 pt-3">

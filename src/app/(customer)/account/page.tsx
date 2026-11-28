@@ -68,7 +68,8 @@ export default function AccountOverviewPage() {
     fetchOrderCounts();
   }, []);
 
-  const handleProfileUpdated = () => {
+  const handleProfileUpdated = (skipReload = false) => {
+    if (skipReload) return;
     setIsReloading(true);
     window.location.reload();
   };

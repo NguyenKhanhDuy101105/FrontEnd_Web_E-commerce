@@ -556,6 +556,21 @@ export function useCheckout() {
       }
 
       const response = await axiosClient.post("/api/orders", orderPayload);
+      const orderData = response.data?.data || response.data;
+
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(
+          "suppress_old_ws_until",
+          String(Date.now() + 6000),
+        );
+        if (orderData?.id) {
+          sessionStorage.setItem(
+            "latest_placed_order_id",
+            String(orderData.id),
+          );
+        }
+      }
+
       showToast.success("Đặt hàng thành công!");
       orderBadgeManager.setHasUnread();
 
@@ -567,8 +582,6 @@ export function useCheckout() {
         localStorage.removeItem("checkout_selected_item_ids");
       }
       localStorage.removeItem("checkout_selected_voucher");
-
-      const orderData = response.data?.data || response.data;
 
       if (paymentMethod === "VNPAY" && orderData?.paymentUrl) {
         window.location.href = orderData.paymentUrl;

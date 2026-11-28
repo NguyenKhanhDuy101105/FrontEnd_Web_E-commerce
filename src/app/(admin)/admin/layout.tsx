@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ChartBarIcon,
@@ -20,6 +20,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { getUserFromStorage, User } from "@/src/utils/getUser";
 import { useAuthGuard } from "@/src/hooks/useAuthGuard";
+import { inventoryRequestService } from "@/src/services/admin/adminInventoryRequestService";
 import Cookies from "js-cookie";
 
 import AdminSidebarHeader from "./components/AdminSidebarHeader";
@@ -42,6 +43,7 @@ export default function AdminPortalLayout({
   const [isMounted, setIsMounted] = useState<boolean>(false);
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
+  const [pendingRequestCount, setPendingRequestCount] = useState<number>(0);
 
   useEffect(() => {
     setIsMounted(true);
@@ -50,6 +52,45 @@ export default function AdminPortalLayout({
       setUser(userData);
     }
   }, []);
+
+  const fetchPendingRequestsCount = useCallback(async () => {
+    try {
+      const res = await inventoryRequestService.getInventoryRequests({
+        status: "PENDING",
+        page: 0,
+        size: 1,
+      });
+      if (res?.data) {
+        const count =
+          typeof res.data.totalElements === "number"
+            ? res.data.totalElements
+            : (res.data.content || []).filter(
+                (item) => item.status === "PENDING",
+              ).length;
+        setPendingRequestCount(count);
+      }
+    } catch {
+      setPendingRequestCount(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isChecking) return;
+    fetchPendingRequestsCount();
+  }, [isChecking, pathname, fetchPendingRequestsCount]);
+
+  useEffect(() => {
+    const handleRefreshBadge = () => {
+      fetchPendingRequestsCount();
+    };
+    window.addEventListener("refresh-replenishment-badge", handleRefreshBadge);
+    return () => {
+      window.removeEventListener(
+        "refresh-replenishment-badge",
+        handleRefreshBadge,
+      );
+    };
+  }, [fetchPendingRequestsCount]);
 
   useEffect(() => {
     setIsMobileOpen(false);
@@ -86,8 +127,13 @@ export default function AdminPortalLayout({
       name: "Quản lý nhập hàng",
       href: "/admin/replenishment",
       icon: InboxArrowDownIcon,
-      badge: "6",
-      badgeColor: "bg-rose-500 text-white font-bold",
+      ...(pendingRequestCount > 0
+        ? {
+            badge:
+              pendingRequestCount > 99 ? "99+" : String(pendingRequestCount),
+            badgeColor: "bg-rose-500 text-white font-bold",
+          }
+        : {}),
     },
     {
       name: "Quản lý khuyến mãi",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -24,6 +24,7 @@ export interface ProductGridProps {
   image: string;
   price: number;
   originalPrice?: number;
+  discountPercent?: number;
   unit?: string;
   rating?: number;
   promotionBadge?: string;
@@ -41,6 +42,7 @@ export default function ProductCardGrid({
   image,
   price,
   originalPrice,
+  discountPercent,
   unit = "Kg",
   rating = 5.0,
   promotionBadge,
@@ -51,13 +53,49 @@ export default function ProductCardGrid({
   const router = useRouter();
   const pathname = usePathname();
   const { isWishlisted, addWishlistId, removeWishlistId } = useWishlist();
-  const { getItemQuantity, addToCart, updateQuantity } = useCart();
+  const { cartItems, getItemQuantity, addToCart, updateQuantity } = useCart();
 
   const wishlist = isWishlisted(id);
-  const cartQuantity = getItemQuantity(id);
+  const cartItem = cartItems.find((item) => item.productId === id);
+  const cartQuantity = cartItem ? cartItem.quantity : getItemQuantity(id);
+
+  const effectiveMaxStock =
+    typeof stockQuantity === "number"
+      ? stockQuantity
+      : typeof cartItem?.stock === "number"
+        ? cartItem.stock
+        : undefined;
+
+  const isAtMaxStock =
+    typeof effectiveMaxStock === "number" &&
+    effectiveMaxStock > 0 &&
+    cartQuantity >= effectiveMaxStock;
 
   const [isWishlistLoading, setIsWishlistLoading] = useState<boolean>(false);
   const [isCartLoading, setIsCartLoading] = useState<boolean>(false);
+
+  const effectiveDiscountPercent = useMemo(() => {
+    if (typeof discountPercent === "number" && discountPercent > 0) {
+      const normalized =
+        discountPercent < 1 ? discountPercent * 100 : discountPercent;
+      return Math.round(normalized);
+    }
+
+    if (
+      typeof originalPrice === "number" &&
+      originalPrice > 0 &&
+      price < originalPrice
+    ) {
+      const calculated = Math.round(
+        ((originalPrice - price) / originalPrice) * 100,
+      );
+      return calculated > 0 ? calculated : 0;
+    }
+
+    return 0;
+  }, [discountPercent, originalPrice, price]);
+
+  const hasDiscount = effectiveDiscountPercent > 0;
 
   const checkAuth = (): boolean => {
     if (typeof window === "undefined") return false;
@@ -119,8 +157,8 @@ export default function ProductCardGrid({
   const isOutOfStock =
     inStock !== undefined
       ? !inStock
-      : stockQuantity !== undefined
-        ? stockQuantity <= 0
+      : effectiveMaxStock !== undefined
+        ? effectiveMaxStock <= 0
         : false;
 
   const handleWishlistClick = async (e: React.MouseEvent) => {
@@ -197,11 +235,12 @@ export default function ProductCardGrid({
     e.stopPropagation();
 
     if (!checkAuth()) return;
-    if (isCartLoading) return;
+    if (isCartLoading || isAtMaxStock) return;
 
     setIsCartLoading(true);
     try {
       await updateQuantity(id, cartQuantity + 1);
+    } catch {
     } finally {
       setIsCartLoading(false);
     }
@@ -217,13 +256,27 @@ export default function ProductCardGrid({
     setIsCartLoading(true);
     try {
       await updateQuantity(id, cartQuantity - 1);
+    } catch {
     } finally {
       setIsCartLoading(false);
     }
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-sm transition-shadow duration-200 flex flex-col justify-between p-3.5 relative group h-full hover:shadow-md">
+    <div className="bg-white border border-slate-200 rounded-sm transition-shadow duration-200 flex flex-col justify-between p-3.5 relative group h-full hover:shadow-md overflow-hidden">
+      {/* Badge phần trăm giảm giá góc trên bên phải của card */}
+      {hasDiscount && (
+        <div
+          className={`absolute top-0 right-0 z-20 px-2 py-1 rounded-bl-xl font-extrabold text-[11px] sm:text-xs tracking-tight shadow-xs select-none pointer-events-none ${
+            isOutOfStock
+              ? "bg-rose-500/80 text-white"
+              : "bg-linear-to-r from-rose-600 to-red-500 text-white"
+          }`}
+        >
+          -{effectiveDiscountPercent}%
+        </div>
+      )}
+
       <div>
         <Link
           href={`/products/${id}`}
@@ -332,10 +385,14 @@ export default function ProductCardGrid({
 
             <button
               type="button"
-              disabled={isCartLoading}
+              disabled={isCartLoading || isAtMaxStock}
               onClick={handleIncreaseQuantity}
-              className="w-7 h-7 flex items-center justify-center text-[#0d5c3a] hover:bg-emerald-50 rounded-xs transition-colors cursor-pointer active:scale-95 disabled:opacity-50"
-              title="Tăng số lượng"
+              className="w-7 h-7 flex items-center justify-center text-[#0d5c3a] hover:bg-emerald-50 rounded-xs transition-colors cursor-pointer active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              title={
+                isAtMaxStock
+                  ? `Đã đạt tối đa tồn kho (${effectiveMaxStock})`
+                  : "Tăng số lượng"
+              }
             >
               <PlusIcon className="w-3.5 h-3.5 stroke-[2.5]" />
             </button>

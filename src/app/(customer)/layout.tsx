@@ -23,14 +23,16 @@ export default function CustomerLayout({
       <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800 relative">
         <Header />
 
-        <main className="flex-1 pb-2 md:pb-0">{children}</main>
+        <main className="flex-1 pb-20 md:pb-0">{children}</main>
 
         <div className="hidden md:block">
           <Footer />
         </div>
       </div>
 
-      <ChatWidget />
+      <div className="[&>div]:bottom-20! md:[&>div]:bottom-6! [&>button]:bottom-20! md:[&>button]:bottom-6!">
+        <ChatWidget />
+      </div>
     </GoogleOAuthProvider>
   );
 }

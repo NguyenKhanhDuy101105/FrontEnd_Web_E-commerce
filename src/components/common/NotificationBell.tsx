@@ -10,6 +10,11 @@ import {
 import notificationService, {
   NotificationItem,
 } from "@/src/services/customer/notificationService";
+import {
+  useUserNotificationWebSocket,
+  UserNotificationRealtimeEvent,
+} from "@/src/hooks/useUserNotificationWebSocket";
+import { showToast } from "@/src/utils/toast";
 
 export default function NotificationBell() {
   const router = useRouter();
@@ -47,7 +52,59 @@ export default function NotificationBell() {
 
   useEffect(() => {
     checkAuthAndFetchUnread();
+
+    const syncBell = () => {
+      checkAuthAndFetchUnread();
+    };
+    window.addEventListener("user-notification-received", syncBell);
+    window.addEventListener("storage", syncBell);
+    return () => {
+      window.removeEventListener("user-notification-received", syncBell);
+      window.removeEventListener("storage", syncBell);
+    };
   }, [checkAuthAndFetchUnread]);
+
+  const handleRealtimeNotification = useCallback(
+    (payload: UserNotificationRealtimeEvent) => {
+      setHasUnread(true);
+      setUnreadCount((prev) => prev + 1);
+
+      const toastText =
+        payload.title ||
+        payload.content ||
+        payload.message ||
+        "Bạn có một thông báo mới!";
+      showToast.info(toastText);
+
+      if (payload.id && payload.title) {
+        setNotifications((prev) => {
+          if (prev.some((n) => n.id === payload.id)) return prev;
+          const newItem: NotificationItem = {
+            id: payload.id!,
+            title: payload.title!,
+            content: payload.content || payload.message || "",
+            isRead: false,
+            createdAt: payload.createdAt || new Date().toISOString(),
+          } as NotificationItem;
+          return [newItem, ...prev].slice(0, 5);
+        });
+      }
+
+      checkAuthAndFetchUnread();
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("user-notification-received", { detail: payload }),
+        );
+      }
+    },
+    [checkAuthAndFetchUnread],
+  );
+
+  useUserNotificationWebSocket({
+    enabled: isLoggedIn,
+    onNotification: handleRealtimeNotification,
+  });
 
   const fetchQuickNotifications = async () => {
     setLoading(true);
@@ -101,12 +158,14 @@ export default function NotificationBell() {
         const newUnreadCount = Math.max(0, unreadCount - 1);
         setUnreadCount(newUnreadCount);
         setHasUnread(newUnreadCount > 0);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n)),
+        );
       } catch (error) {
         console.error("Lỗi khi đánh dấu thông báo đã đọc:", error);
       }
     }
 
-    // Luôn chuyển hướng đến trang quản lý thông báo của tài khoản
     router.push("/account/notifications");
   };
 

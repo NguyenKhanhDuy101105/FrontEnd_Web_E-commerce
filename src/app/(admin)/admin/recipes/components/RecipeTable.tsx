@@ -1,11 +1,14 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import {
   MagnifyingGlassIcon,
   PlusIcon,
   PencilSquareIcon,
   TrashIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import {
   RecipeItem,
@@ -19,6 +22,7 @@ interface RecipeTableProps {
   category: string;
   isActive: string;
   page: number;
+  pageSize?: number;
   totalPages: number;
   totalElements: number;
   onKeywordChange: (val: string) => void;
@@ -42,6 +46,8 @@ const CATEGORIES: { value: CategoryMonAn | ""; label: string }[] = [
   { value: "OTHER", label: "Khác" },
 ];
 
+const FALLBACK_IMAGE = "/images/Banner1.jpeg";
+
 export default function RecipeTable({
   recipes,
   loading,
@@ -49,6 +55,7 @@ export default function RecipeTable({
   category,
   isActive,
   page,
+  pageSize = 10,
   totalPages,
   totalElements,
   onKeywordChange,
@@ -59,6 +66,13 @@ export default function RecipeTable({
   onOpenEditModal,
   onDeleteRecipe,
 }: RecipeTableProps) {
+  const safeTotalPages = Math.max(1, totalPages);
+  const startItem = totalElements === 0 ? 0 : page * pageSize + 1;
+  const endItem =
+    totalElements === 0
+      ? 0
+      : Math.min(page * pageSize + recipes.length, totalElements);
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-6 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -75,6 +89,7 @@ export default function RecipeTable({
           </p>
         </div>
         <button
+          type="button"
           onClick={onOpenCreateModal}
           className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-medium rounded-xl transition-all shadow-sm shadow-emerald-200 cursor-pointer text-sm"
         >
@@ -118,7 +133,7 @@ export default function RecipeTable({
         </select>
       </div>
 
-      <div className="rounded-xl border border-slate-100 overflow-hidden">
+      <div className="rounded-xl border border-slate-200/80 overflow-hidden bg-white">
         {loading ? (
           <div className="p-8 text-center text-slate-400 animate-pulse text-sm">
             Đang tải danh sách công thức...
@@ -133,14 +148,16 @@ export default function RecipeTable({
               {recipes.map((item) => (
                 <div key={item.id} className="p-4 space-y-3 bg-white">
                   <div className="flex items-start gap-3">
-                    <img
-                      src={
-                        item.imageUrl ||
-                        "https://placehold.co/100x100?text=Food"
-                      }
-                      alt={item.name}
-                      className="w-14 h-14 rounded-xl object-cover border border-slate-100 shrink-0"
-                    />
+                    <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-100 shrink-0 bg-slate-50">
+                      <Image
+                        src={item.imageUrl || FALLBACK_IMAGE}
+                        alt={item.name}
+                        fill
+                        unoptimized
+                        sizes="56px"
+                        className="object-cover"
+                      />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-slate-800 text-sm truncate">
                         {item.name}
@@ -175,12 +192,14 @@ export default function RecipeTable({
 
                     <div className="flex items-center gap-1">
                       <button
+                        type="button"
                         onClick={() => onOpenEditModal(item)}
                         className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
                       >
                         <PencilSquareIcon className="w-4 h-4" />
                       </button>
                       <button
+                        type="button"
                         onClick={() => onDeleteRecipe(item.id, item.name)}
                         className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                       >
@@ -211,14 +230,16 @@ export default function RecipeTable({
                     >
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <img
-                            src={
-                              item.imageUrl ||
-                              "https://placehold.co/100x100?text=Food"
-                            }
-                            alt={item.name}
-                            className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0"
-                          />
+                          <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-100 shrink-0 bg-slate-50">
+                            <Image
+                              src={item.imageUrl || FALLBACK_IMAGE}
+                              alt={item.name}
+                              fill
+                              unoptimized
+                              sizes="48px"
+                              className="object-cover"
+                            />
+                          </div>
                           <div className="min-w-0">
                             <h4 className="font-semibold text-slate-800 truncate">
                               {item.name}
@@ -253,6 +274,7 @@ export default function RecipeTable({
                       <td className="p-4 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-2">
                           <button
+                            type="button"
                             onClick={() => onOpenEditModal(item)}
                             className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
                             title="Chỉnh sửa"
@@ -260,6 +282,7 @@ export default function RecipeTable({
                             <PencilSquareIcon className="w-5 h-5" />
                           </button>
                           <button
+                            type="button"
                             onClick={() => onDeleteRecipe(item.id, item.name)}
                             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                             title="Xóa"
@@ -273,33 +296,49 @@ export default function RecipeTable({
                 </tbody>
               </table>
             </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-200/80 bg-white text-xs text-slate-600">
+              <p>
+                Hiển thị{" "}
+                <strong className="font-bold text-slate-900">
+                  {startItem} - {endItem}
+                </strong>{" "}
+                trên tổng số{" "}
+                <strong className="font-bold text-slate-900">
+                  {totalElements}
+                </strong>{" "}
+                công thức
+              </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={page === 0}
+                  onClick={() => onPageChange(page - 1)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <ChevronLeftIcon className="w-3.5 h-3.5" />
+                  <span>Trước</span>
+                </button>
+
+                <span className="px-2.5 font-bold text-slate-800 select-none">
+                  {page + 1}/{safeTotalPages}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={page >= safeTotalPages - 1}
+                  onClick={() => onPageChange(page + 1)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <span>Sau</span>
+                  <ChevronRightIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
           </>
         )}
       </div>
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-2">
-          <p className="text-xs text-slate-500">
-            Trang {page + 1} / {totalPages}
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              disabled={page === 0}
-              onClick={() => onPageChange(page - 1)}
-              className="px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-            >
-              Trước
-            </button>
-            <button
-              disabled={page >= totalPages - 1}
-              onClick={() => onPageChange(page + 1)}
-              className="px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-            >
-              Sau
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

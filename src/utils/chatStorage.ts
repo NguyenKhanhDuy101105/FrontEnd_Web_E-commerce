@@ -3,8 +3,8 @@ import { Message } from "@/src/types/chat";
 const CHAT_PREFIX = "urbanmart_chat_";
 const MAX_STORED_MESSAGES = 50;
 
-function getCurrentUserSuffix(): string {
-  if (typeof window === "undefined") return "guest";
+function getCurrentUserId(): string | null {
+  if (typeof window === "undefined") return null;
   try {
     const rawUser =
       localStorage.getItem("user") || localStorage.getItem("userInfo");
@@ -12,17 +12,16 @@ function getCurrentUserSuffix(): string {
       const parsed = JSON.parse(rawUser);
       if (parsed?.id) return String(parsed.id);
     }
-  } catch {
-    // Bỏ qua nếu parse lỗi
-  }
-  return "default";
+  } catch {}
+  return null;
 }
 
 export const chatStorage = {
   getMessages: (mode: "ai" | "staff", fallback: Message[]): Message[] => {
-    if (typeof window === "undefined") return fallback;
+    const userId = getCurrentUserId();
+    if (!userId) return fallback;
     try {
-      const key = `${CHAT_PREFIX}${mode}_msgs_${getCurrentUserSuffix()}`;
+      const key = `${CHAT_PREFIX}${mode}_msgs_${userId}`;
       const saved = localStorage.getItem(key);
       if (!saved) return fallback;
       const parsed = JSON.parse(saved);
@@ -33,9 +32,10 @@ export const chatStorage = {
   },
 
   saveMessages: (mode: "ai" | "staff", messages: Message[]): void => {
-    if (typeof window === "undefined") return;
+    const userId = getCurrentUserId();
+    if (!userId) return;
     try {
-      const key = `${CHAT_PREFIX}${mode}_msgs_${getCurrentUserSuffix()}`;
+      const key = `${CHAT_PREFIX}${mode}_msgs_${userId}`;
       const trimmed = messages.slice(-MAX_STORED_MESSAGES);
       localStorage.setItem(key, JSON.stringify(trimmed));
     } catch (error) {
@@ -44,8 +44,9 @@ export const chatStorage = {
   },
 
   getOrCreateSessionId: (mode: "ai" | "staff"): string => {
-    if (typeof window === "undefined") return "";
-    const key = `${CHAT_PREFIX}${mode}_session_${getCurrentUserSuffix()}`;
+    const userId = getCurrentUserId();
+    if (!userId) return "";
+    const key = `${CHAT_PREFIX}${mode}_session_${userId}`;
     const saved = localStorage.getItem(key);
     if (saved) return saved;
 
@@ -58,8 +59,9 @@ export const chatStorage = {
   },
 
   saveSessionId: (mode: "ai" | "staff", sessionId: string): void => {
-    if (typeof window === "undefined" || !sessionId) return;
-    const key = `${CHAT_PREFIX}${mode}_session_${getCurrentUserSuffix()}`;
+    const userId = getCurrentUserId();
+    if (!userId || !sessionId) return;
+    const key = `${CHAT_PREFIX}${mode}_session_${userId}`;
     localStorage.setItem(key, sessionId);
   },
 

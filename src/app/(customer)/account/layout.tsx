@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   UserIcon,
   CubeIcon,
@@ -13,7 +13,9 @@ import {
   Squares2X2Icon,
   ArrowLeftStartOnRectangleIcon,
 } from "@heroicons/react/24/outline";
-import { showToast } from "@/src/utils/toast";
+import Cookies from "js-cookie";
+import LoadingSpinner from "@/src/components/common/LoadingSpinner";
+import { chatStorage } from "@/src/utils/chatStorage";
 
 interface UserProfile {
   fullName?: string;
@@ -26,11 +28,11 @@ export default function AccountLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
 
   const [isMounted, setIsMounted] = useState<boolean>(false);
   const [userName, setUserName] = useState<string>("Khách hàng");
   const [loading, setLoading] = useState<boolean>(true);
+  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -49,11 +51,14 @@ export default function AccountLayout({
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    showToast.success("Đã đăng xuất thành công!");
-    router.push("/auth/login");
+    setIsLoggingOut(true);
+
+    localStorage.clear();
+    chatStorage.clearAllChatData();
+    Cookies.remove("token", { path: "/" });
+    Cookies.remove("role", { path: "/" });
+
+    window.location.href = "/auth/login";
   };
 
   const navItems = [
@@ -96,79 +101,88 @@ export default function AccountLayout({
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 md:py-8">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <aside className="lg:col-span-3 space-y-4">
-          <div className="bg-white p-4 rounded-lg border border-slate-100 shadow-xs flex items-center justify-between">
-            <div className="flex items-center space-x-3 overflow-hidden">
-              <div className="w-12 h-12 rounded-full bg-[#0d5c3a] text-white font-bold flex items-center justify-center text-lg shrink-0">
-                {isMounted ? userName.charAt(0).toUpperCase() : ""}
+    <>
+      {isLoggingOut && (
+        <LoadingSpinner
+          fullScreen
+          message="Đang đăng xuất và làm mới dữ liệu..."
+        />
+      )}
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 md:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <aside className="lg:col-span-3 space-y-4">
+            <div className="bg-white p-4 rounded-lg border border-slate-100 shadow-xs flex items-center justify-between">
+              <div className="flex items-center space-x-3 overflow-hidden">
+                <div className="w-12 h-12 rounded-full bg-[#0d5c3a] text-white font-bold flex items-center justify-center text-lg shrink-0">
+                  {isMounted ? userName.charAt(0).toUpperCase() : ""}
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
+                    Tài khoản của
+                  </p>
+                  {!isMounted || loading ? (
+                    <div className="h-4 bg-slate-200 rounded-md w-28 animate-pulse mt-1" />
+                  ) : (
+                    <h2 className="text-sm font-bold text-slate-800 leading-tight truncate">
+                      {userName}
+                    </h2>
+                  )}
+                </div>
               </div>
-              <div className="overflow-hidden">
-                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-                  Tài khoản của
-                </p>
-                {!isMounted || loading ? (
-                  <div className="h-4 bg-slate-200 rounded-md w-28 animate-pulse mt-1" />
-                ) : (
-                  <h2 className="text-sm font-bold text-slate-800 leading-tight truncate">
-                    {userName}
-                  </h2>
-                )}
-              </div>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="lg:hidden flex items-center space-x-1 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-xs rounded-lg border border-red-200/60 transition-all cursor-pointer shrink-0 active:scale-95 ml-2"
+              >
+                <ArrowLeftStartOnRectangleIcon className="w-4 h-4 shrink-0" />
+                <span>Đăng xuất</span>
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="lg:hidden flex items-center space-x-1 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-xs rounded-lg border border-red-200/60 transition-all cursor-pointer shrink-0 active:scale-95 ml-2"
-            >
-              <ArrowLeftStartOnRectangleIcon className="w-4 h-4 shrink-0" />
-              <span>Đăng xuất</span>
-            </button>
-          </div>
+            <nav className="bg-white p-2 rounded-lg border border-slate-100 shadow-xs space-y-1">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  item.href === "/account"
+                    ? pathname === "/account"
+                    : pathname.startsWith(item.href);
 
-          <nav className="bg-white p-2 rounded-lg border border-slate-100 shadow-xs space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive =
-                item.href === "/account"
-                  ? pathname === "/account"
-                  : pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg font-medium text-xs sm:text-sm transition-all ${
+                      isActive
+                        ? "text-[#0d5c3a] font-bold bg-emerald-50/80 shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Icon
+                        className={`w-5 h-5 shrink-0 ${
+                          isActive ? "text-[#0d5c3a]" : "text-slate-500"
+                        }`}
+                      />
+                      <span>{item.name}</span>
+                    </div>
+                    {!!item.badge && item.badge > 0 && (
+                      <span className="bg-red-500 text-white font-bold text-[10px] px-2 py-0.5 rounded-full">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+          </aside>
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg font-medium text-xs sm:text-sm transition-all ${
-                    isActive
-                      ? "text-[#0d5c3a] font-bold bg-emerald-50/80 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Icon
-                      className={`w-5 h-5 shrink-0 ${
-                        isActive ? "text-[#0d5c3a]" : "text-slate-500"
-                      }`}
-                    />
-                    <span>{item.name}</span>
-                  </div>
-                  {!!item.badge && item.badge > 0 && (
-                    <span className="bg-red-500 text-white font-bold text-[10px] px-2 py-0.5 rounded-full">
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
-        </aside>
-
-        <main className="lg:col-span-9 bg-white rounded-lg border border-slate-100 p-6 sm:p-8 shadow-xs">
-          {children}
-        </main>
+          <main className="lg:col-span-9 bg-white rounded-lg border border-slate-100 p-6 sm:p-8 shadow-xs">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

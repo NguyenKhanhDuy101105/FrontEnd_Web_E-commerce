@@ -10,6 +10,7 @@ import NotificationFilterTabs from "./components/NotificationFilterTabs";
 import NotificationCard from "./components/NotificationCard";
 import Pagination from "@/src/components/common/Pagination";
 import { BellIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
+import { UserNotificationRealtimeEvent } from "@/src/hooks/useUserNotificationWebSocket";
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -18,11 +19,18 @@ export default function NotificationsPage() {
 
   const [loading, setLoading] = useState<boolean>(true);
   const [isMarkingAll, setIsMarkingAll] = useState<boolean>(false);
+  const [isDeletingAll, setIsDeletingAll] = useState<boolean>(false);
 
   const [page, setPage] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
 
   const listContainerRef = useRef<HTMLDivElement>(null);
+
+  const notifyBellSync = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("notifications-updated"));
+    }
+  }, []);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -35,41 +43,114 @@ export default function NotificationsPage() {
     }
   }, []);
 
-  const fetchNotifications = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await notificationService.getNotifications({
-        page,
-        size: 10,
-        type: activeType === "ALL" ? undefined : activeType,
-      });
+  const fetchNotifications = useCallback(
+    async (silent = false) => {
+      if (!silent) {
+        setLoading(true);
+      }
+      try {
+        const res = await notificationService.getNotifications({
+          page,
+          size: 10,
+          type: activeType === "ALL" ? undefined : activeType,
+        });
 
-      if (res.status === "success" && res.data) {
-        setNotifications(res.data.content || []);
-        setTotalPages(res.data.totalPages || 0);
-        if (res.data.unreadCount !== undefined) {
-          setUnreadCount(res.data.unreadCount);
+        if (res.status === "success" && res.data) {
+          setNotifications(res.data.content || []);
+          setTotalPages(res.data.totalPages || 0);
+          if (res.data.unreadCount !== undefined) {
+            setUnreadCount(res.data.unreadCount);
+          }
+        } else if (!silent) {
+          setNotifications([]);
+          setTotalPages(0);
         }
-      } else {
-        setNotifications([]);
-        setTotalPages(0);
+      } catch (error) {
+        console.error("Lỗi khi tải danh sách thông báo:", error);
+        if (!silent) {
+          showToast.error("Không thể tải danh sách thông báo!");
+          setNotifications([]);
+        }
+      } finally {
+        if (!silent) {
+          setLoading(false);
+          if (listContainerRef.current) {
+            listContainerRef.current.scrollTop = 0;
+          }
+        }
       }
-    } catch (error) {
-      console.error("Lỗi khi tải danh sách thông báo:", error);
-      showToast.error("Không thể tải danh sách thông báo!");
-      setNotifications([]);
-    } finally {
-      setLoading(false);
-      if (listContainerRef.current) {
-        listContainerRef.current.scrollTop = 0;
-      }
-    }
-  }, [page, activeType]);
+    },
+    [page, activeType],
+  );
 
   useEffect(() => {
-    fetchNotifications();
+    fetchNotifications(false);
     fetchUnreadCount();
   }, [fetchNotifications, fetchUnreadCount]);
+
+  useEffect(() => {
+    const handleNotificationsUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<
+        UserNotificationRealtimeEvent | undefined
+      >;
+      const payload = customEvent?.detail;
+
+      if (payload && (payload.title || payload.content || payload.message)) {
+        const incomingType = payload.type as NotificationType | undefined;
+
+        if (
+          page === 0 &&
+          (activeType === "ALL" ||
+            (incomingType && incomingType === activeType))
+        ) {
+          const incomingTitle = (payload.title || "Thông báo mới").trim();
+          const incomingContent = (
+            payload.content ||
+            payload.message ||
+            ""
+          ).trim();
+
+          setNotifications((prev) => {
+            const isAlreadyInList = prev.some(
+              (item) =>
+                (payload.id && item.id === payload.id) ||
+                (item.title === incomingTitle &&
+                  item.content === incomingContent &&
+                  Math.abs(Date.now() - new Date(item.createdAt).getTime()) <
+                    5000),
+            );
+            if (isAlreadyInList) return prev;
+
+            const newItem: NotificationItem = {
+              id: payload.id || `ws-${Date.now()}`,
+              title: incomingTitle,
+              content: incomingContent,
+              type: incomingType || "SYSTEM",
+              referenceId: payload.referenceId,
+              isRead: false,
+              createdAt: payload.createdAt || new Date().toISOString(),
+            } as NotificationItem;
+
+            return [newItem, ...prev].slice(0, 10);
+          });
+        }
+      }
+
+      fetchNotifications(true);
+      fetchUnreadCount();
+    };
+
+    window.addEventListener(
+      "notifications-updated",
+      handleNotificationsUpdated,
+    );
+    return () => {
+      window.removeEventListener(
+        "notifications-updated",
+        handleNotificationsUpdated,
+      );
+    };
+  }, [page, activeType, fetchNotifications, fetchUnreadCount]);
 
   const handleSelectType = (type: NotificationType | "ALL") => {
     setActiveType(type);
@@ -86,6 +167,7 @@ export default function NotificationsPage() {
           ),
         );
         setUnreadCount((prev) => Math.max(0, prev - 1));
+        notifyBellSync();
       }
     } catch (error) {
       console.error("Lỗi khi đánh dấu đã đọc:", error);
@@ -103,6 +185,7 @@ export default function NotificationsPage() {
           prev.map((item) => ({ ...item, isRead: true })),
         );
         setUnreadCount(0);
+        notifyBellSync();
       }
     } catch (error) {
       console.error("Lỗi khi đánh dấu đọc tất cả:", error);
@@ -117,12 +200,52 @@ export default function NotificationsPage() {
       const res = await notificationService.deleteNotification(id);
       if (res.status === "success") {
         showToast.success("Đã xóa thông báo!");
-        fetchNotifications();
-        fetchUnreadCount();
+        await fetchNotifications(true);
+        await fetchUnreadCount();
+        notifyBellSync();
       }
     } catch (error) {
       console.error("Lỗi khi xóa thông báo:", error);
       showToast.error("Không thể xóa thông báo này!");
+    }
+  };
+
+  const handleDeleteAllNotifications = async () => {
+    if (notifications.length === 0 || isDeletingAll) return;
+    setIsDeletingAll(true);
+    try {
+      const serviceWithBulkDelete =
+        notificationService as typeof notificationService & {
+          deleteAllNotifications?: () => Promise<{ status: string }>;
+        };
+
+      if (typeof serviceWithBulkDelete.deleteAllNotifications === "function") {
+        const res = await serviceWithBulkDelete.deleteAllNotifications();
+        if (res.status === "success") {
+          showToast.success("Đã xóa tất cả thông báo!");
+          setNotifications([]);
+          setTotalPages(0);
+          setUnreadCount(0);
+          setPage(0);
+          notifyBellSync();
+        }
+      } else {
+        await Promise.all(
+          notifications.map((item) =>
+            notificationService.deleteNotification(item.id),
+          ),
+        );
+        showToast.success("Đã xóa tất cả thông báo!");
+        setPage(0);
+        await fetchNotifications(true);
+        await fetchUnreadCount();
+        notifyBellSync();
+      }
+    } catch (error) {
+      console.error("Lỗi khi xóa tất cả thông báo:", error);
+      showToast.error("Không thể xóa tất cả thông báo. Vui lòng thử lại!");
+    } finally {
+      setIsDeletingAll(false);
     }
   };
 
@@ -131,9 +254,12 @@ export default function NotificationsPage() {
       <NotificationFilterTabs
         activeType={activeType}
         unreadCount={unreadCount}
+        hasNotifications={notifications.length > 0}
         onSelectType={handleSelectType}
         onMarkAllAsRead={handleMarkAllAsRead}
         isMarkingAll={isMarkingAll}
+        onDeleteAll={handleDeleteAllNotifications}
+        isDeletingAll={isDeletingAll}
       />
 
       {loading ? (

@@ -6,7 +6,6 @@ import { TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
 interface ClearCartConfirmModalProps {
   isOpen: boolean;
   itemCount: number;
-  branchName?: string;
   isClearing?: boolean;
   onClose: () => void;
   onConfirm: () => void;
@@ -15,7 +14,6 @@ interface ClearCartConfirmModalProps {
 export default function ClearCartConfirmModal({
   isOpen,
   itemCount,
-  branchName,
   isClearing = false,
   onClose,
   onConfirm,
@@ -69,17 +67,8 @@ export default function ClearCartConfirmModal({
               Bạn có chắc chắn muốn xóa tất cả{" "}
               <span className="font-bold text-slate-700">
                 {itemCount} sản phẩm
-              </span>
-              {branchName ? (
-                <>
-                  {" "}
-                  tại{" "}
-                  <span className="font-semibold text-emerald-700">
-                    {branchName}
-                  </span>
-                </>
-              ) : null}{" "}
-              không? Hành động này không thể hoàn tác.
+              </span>{" "}
+              trong giỏ hàng không? Hành động này không thể hoàn tác.
             </p>
           </div>
         </div>
